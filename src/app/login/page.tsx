@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Brain, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
@@ -20,7 +20,7 @@ function GoogleIcon() {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn, signInWithGoogle, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -28,20 +28,23 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (user) router.push("/dashboard");
+  }, [user, router]);
+
   const handleGoogle = async () => {
     setError("");
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      router.push("/dashboard");
+      // Page will redirect to Google — no further action needed here
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "";
-      if (msg.includes("popup-closed-by-user") || msg.includes("cancelled-popup-request")) {
-        // user dismissed — no error to show
-      } else {
+      if (!msg.includes("unauthorized-domain")) {
         setError("Google sign-in failed. Please try again.");
+      } else {
+        setError("This domain is not authorized. Contact support.");
       }
-    } finally {
       setGoogleLoading(false);
     }
   };
