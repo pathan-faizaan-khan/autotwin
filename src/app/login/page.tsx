@@ -37,14 +37,17 @@ export default function LoginPage() {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      // Page will redirect to Google — no further action needed here
+      router.push("/dashboard");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "";
-      if (!msg.includes("unauthorized-domain")) {
-        setError("Google sign-in failed. Please try again.");
-      } else {
+      if (msg.includes("unauthorized-domain")) {
         setError("This domain is not authorized. Contact support.");
+      } else if (msg.includes("popup-closed-by-user") || msg.includes("cancelled-popup-request")) {
+        // User dismissed popup — not an error, just reset
+      } else {
+        setError("Google sign-in failed. Please try again.");
       }
+    } finally {
       setGoogleLoading(false);
     }
   };
