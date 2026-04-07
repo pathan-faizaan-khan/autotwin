@@ -5,108 +5,111 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Brain, LayoutDashboard, FileText, CheckSquare, MessageSquare,
+  Brain, LayoutDashboard, FileText, MessageSquare,
   BarChart3, GitBranch, ScrollText, Plug, Settings,
-  ChevronLeft, ChevronRight
+  ChevronRight, ChevronLeft, Hexagon, AlertTriangle
 } from "lucide-react";
 
 const navItems = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { label: "Invoices", href: "/dashboard/invoices", icon: FileText },
-  { label: "Approvals", href: "/dashboard/approvals", icon: CheckSquare },
-  { label: "AI Chat", href: "/dashboard/chat", icon: MessageSquare },
+  { label: "Exceptions Queue", href: "/dashboard/approvals", icon: AlertTriangle },
   { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
   { label: "Workflow", href: "/dashboard/workflow", icon: GitBranch },
   { label: "Logs", href: "/dashboard/logs", icon: ScrollText },
+  { label: "AI Chat", href: "/dashboard/chat", icon: MessageSquare },
+];
+
+const secondaryItems = [
   { label: "Integrations", href: "/dashboard/integrations", icon: Plug },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
 export default function Sidebar({ onWidthChange }: { onWidthChange?: (w: number) => void }) {
   const [collapsed, setCollapsed] = useState(false);
+  const pathname = usePathname();
+
   const toggleCollapse = () => {
     const next = !collapsed;
     setCollapsed(next);
-    onWidthChange?.(next ? 64 : 224);
+    onWidthChange?.(next ? 80 : 260); // Much wider base sidebar (260px)
   };
-  const pathname = usePathname();
+
+  const NavGroup = ({ items }: { items: typeof navItems }) => (
+    <div className="flex flex-col gap-1">
+      {items.map((item) => {
+        const Icon = item.icon;
+        const active = pathname === item.href;
+        return (
+           <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}
+             className={`group relative flex items-center gap-4 py-3 rounded-xl transition-all duration-300 ease-out
+                ${collapsed ? 'justify-center px-0' : 'px-4'}
+                ${active ? 'text-zinc-50' : 'text-zinc-500 hover:text-zinc-200'}`}>
+             
+             {/* Active Indicator Glow */}
+             {active && (
+               <motion.div layoutId="active-nav" className="absolute inset-0 bg-white/[0.03] border border-white/10 rounded-xl" transition={{ type: "spring", stiffness: 300, damping: 30 }} />
+             )}
+             
+             <div className="relative z-10 flex items-center justify-center">
+               <Icon size={18} className={`transition-colors duration-300 ${active ? 'text-zinc-50' : 'text-zinc-600 group-hover:text-zinc-400'}`} />
+               {active && (
+                 <div className="absolute inset-0 blur-md bg-white/20" />
+               )}
+             </div>
+
+             <AnimatePresence>
+               {!collapsed && (
+                 <motion.span initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}
+                   className="relative z-10 text-[14px] font-medium tracking-wide">
+                   {item.label}
+                 </motion.span>
+               )}
+             </AnimatePresence>
+           </Link>
+        );
+      })}
+    </div>
+  );
 
   return (
     <motion.aside
       initial={false}
-      animate={{ width: collapsed ? 64 : 224 }}
-      transition={{ duration: 0.25, ease: "easeInOut" }}
-      style={{
-        position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 40,
-        background: "rgba(9,9,11,0.97)",
-        borderRight: "1px solid rgba(255,255,255,0.06)",
-        display: "flex", flexDirection: "column",
-        overflow: "hidden", flexShrink: 0,
-      }}
+      animate={{ width: collapsed ? 80 : 260 }}
+      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      className="fixed top-0 left-0 bottom-0 z-40 bg-transparent flex flex-col justify-between py-6 px-4"
     >
-      {/* Logo */}
-      <div style={{ padding: "16px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", gap: 10, minHeight: 57 }}>
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 4px 12px rgba(124,58,237,0.3)" }}>
-          <Brain size={16} color="white" />
-        </div>
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}
-              style={{ fontSize: 14, fontWeight: 800, color: "#fafafa", whiteSpace: "nowrap", letterSpacing: "-0.02em" }}>
-              AutoTwin <span style={{ backgroundImage: "linear-gradient(135deg,#a78bfa,#818cf8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>AI</span>
-            </motion.span>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Nav */}
-      <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto", overflowX: "hidden" }}>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const active = pathname === item.href;
-          return (
-            <Link key={item.href} href={item.href} title={collapsed ? item.label : undefined}
-              style={{
-                display: "flex", alignItems: "center", gap: 12,
-                padding: collapsed ? "10px 16px" : "9px 12px",
-                borderRadius: 8, marginBottom: 2, textDecoration: "none",
-                background: active ? "rgba(139,92,246,0.15)" : "transparent",
-                border: active ? "1px solid rgba(139,92,246,0.2)" : "1px solid transparent",
-                color: active ? "#a78bfa" : "#71717a",
-                transition: "all 0.15s ease",
-                justifyContent: collapsed ? "center" : "flex-start",
-              }}
-              onMouseEnter={e => { if (!active) { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "#d4d4d8"; } }}
-              onMouseLeave={e => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#71717a"; } }}>
-              <Icon size={17} style={{ flexShrink: 0 }} />
-              <AnimatePresence>
-                {!collapsed && (
-                  <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    style={{ fontSize: 13, fontWeight: active ? 600 : 400, whiteSpace: "nowrap" }}>
-                    {item.label}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Collapse toggle */}
-      <div style={{ padding: "12px 8px", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-        <button onClick={toggleCollapse}
-          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: collapsed ? "center" : "flex-start", gap: 10, padding: "9px 12px", borderRadius: 8, background: "none", border: "1px solid rgba(255,255,255,0.06)", cursor: "pointer", color: "#52525b", transition: "all 0.15s" }}
-          onMouseEnter={e => { e.currentTarget.style.color = "#a1a1aa"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
-          onMouseLeave={e => { e.currentTarget.style.color = "#52525b"; e.currentTarget.style.background = "none"; }}>
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+      <div className="flex flex-col h-full">
+        {/* Brand Area */}
+        <div className={`flex items-center gap-3 px-2 mb-12 ${collapsed ? 'justify-center' : ''}`}>
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500/50 flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(139,92,246,0.3)]">
+            <Hexagon size={20} className="text-white fill-white/20" />
+          </div>
           <AnimatePresence>
             {!collapsed && (
-              <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ fontSize: 12, whiteSpace: "nowrap" }}>
-                Collapse
-              </motion.span>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col">
+                <span className="font-outfit text-lg font-black tracking-tighter leading-none text-zinc-50 flex items-center gap-1">
+                  AutoTwin<span className="text-violet-400">AI</span>
+                </span>
+                <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mt-0.5">Confidence Engine</span>
+              </motion.div>
             )}
           </AnimatePresence>
-        </button>
+        </div>
+
+        {/* Primary Navigation */}
+        <nav className="flex-1 overflow-y-auto no-scrollbar">
+          <NavGroup items={navItems} />
+        </nav>
+
+        {/* Secondary Navigation & Footer */}
+        <div className="mt-8 border-t border-white/[0.04] pt-4 flex flex-col gap-4">
+          <NavGroup items={secondaryItems} />
+          
+          <button onClick={toggleCollapse} className={`group flex items-center justify-center w-8 h-8 rounded-full border border-white/[0.05] bg-white/[0.01] hover:bg-white/[0.05] transition-all text-zinc-600 hover:text-zinc-300 mt-2 ${collapsed ? 'mx-auto' : 'ml-auto mr-4'}`}>
+            {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
+        </div>
       </div>
     </motion.aside>
   );

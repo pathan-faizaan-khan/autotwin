@@ -1,15 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
+import { useRouter, usePathname } from "next/navigation";
+import { Inter, Outfit } from "next/font/google";
 import Sidebar from "@/components/dashboard/Sidebar";
 import TopNav from "@/components/dashboard/TopNav";
+import { QueryProvider } from "@/components/providers/query-provider";
+import { useAuth } from "@/context/AuthContext";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const [sidebarWidth, setSidebarWidth] = useState(224);
+  const pathname = usePathname();
+  const [sidebarWidth, setSidebarWidth] = useState(240);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -17,40 +23,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [user, loading, router]);
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: "100vh", background: "#09090b", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", margin: "0 auto 16px", animation: "pulse 1.5s ease-in-out infinite" }} />
-          <p style={{ color: "#52525b", fontSize: 14 }}>Loading AutoTwin AI...</p>
-        </div>
-        <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }`}</style>
-      </div>
-    );
-  }
-
+  if (loading) return null;
   if (!user) return null;
 
+  const isChat = pathname === "/dashboard/chat";
+
   return (
-    <div style={{ minHeight: "100vh", background: "#09090b", fontFamily: "Inter, sans-serif" }}>
-      {/* Sidebar */}
-      <Sidebar onWidthChange={setSidebarWidth} />
+    <div className={`${inter.variable} ${outfit.variable} font-sans min-h-screen bg-[#030303] text-zinc-100 selection:bg-violet-500/30 overflow-hidden flex`}>
+      <QueryProvider>
+        {/* Background Ambient Glows */}
+        <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] bg-violet-600/10 blur-[150px] rounded-full pointer-events-none z-0" />
+        <div className="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-600/10 blur-[150px] rounded-full pointer-events-none z-0" />
 
-      {/* Top Nav — positioned after sidebar */}
-      <TopNav sidebarWidth={sidebarWidth} />
+        {/* Sidebar */}
+        <Sidebar onWidthChange={setSidebarWidth} />
 
-      {/* Main content */}
-      <main style={{
-        marginLeft: sidebarWidth,
-        paddingTop: 56,
-        minHeight: "100vh",
-        transition: "margin-left 0.25s ease",
-        background: "#09090b",
-      }}>
-        <div style={{ padding: "28px 28px" }}>
-          {children}
+        {/* Main Interface Wrapper */}
+        <div className="flex flex-col flex-1 relative z-10 h-screen transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ marginLeft: sidebarWidth }}>
+          <TopNav />
+
+          <main id="main-scroll-area" className={`flex-1 ${isChat ? 'overflow-hidden pt-[96px]' : 'overflow-y-auto px-8 md:px-12 pt-28 pb-24'}`}>
+            <div className={`mx-auto ${isChat ? 'h-full w-full' : 'max-w-[1400px]'}`}>
+              {children}
+            </div>
+          </main>
         </div>
-      </main>
+      </QueryProvider>
     </div>
   );
 }
