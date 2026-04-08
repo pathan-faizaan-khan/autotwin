@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { invoices } from "@/lib/schema";
-import { desc } from "drizzle-orm";
+import { invoices, extractedDocuments } from "@/lib/schema";
+import { desc, eq } from "drizzle-orm";
 
 const MOCK_INVOICES = [
   { id: "inv-001", userId: "demo", vendor: "Amazon Web Services", invoiceNo: "INV-2026-0041", amount: 289500, currency: "INR", status: "approved", confidence: 96, category: "Cloud", fileUrl: null, createdAt: "2026-04-05T10:00:00Z" },
@@ -18,16 +18,23 @@ const MOCK_INVOICES = [
   { id: "inv-012", userId: "demo", vendor: "SupplyPro Ltd.", invoiceNo: "INV-2026-0052", amount: 86200, currency: "INR", status: "pending", confidence: 58, category: "Supplies", fileUrl: null, createdAt: "2026-03-29T10:00:00Z" },
 ];
 
-export async function GET() {
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const userId = searchParams.get("userId");
+
   const db = getDb();
   if (!db) return NextResponse.json({ invoices: [] });
   try {
-    const data = await db.select().from(invoices).orderBy(desc(invoices.createdAt));
-    
-    // Also fetch the newly generated FastAPI OCR extractions!
-    const { extractedDocuments } = await import("@/lib/schema");
-    const ocrData = await db.select().from(extractedDocuments).orderBy(desc(extractedDocuments.createdAt));
-    
+    // Filter invoices by userId
+    const data = userId
+      ? await db.select().from(invoices).where(eq(invoices.userId, userId)).orderBy(desc(invoices.createdAt))
+      : [];
+
+    // Filter OCR extractions by userId
+    const ocrData = userId
+      ? await db.select().from(extractedDocuments).where(eq(extractedDocuments.userId, userId)).orderBy(desc(extractedDocuments.createdAt))
+      : [];
+
     // Map OCR data into the exact format expected by the frontend
     const mappedOcrData = ocrData.map(doc => ({
       id: doc.id,

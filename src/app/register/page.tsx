@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Brain, Mail, Lock, User, Eye, EyeOff, AlertCircle, Loader2, CheckCircle } from "lucide-react";
+import { Brain, Mail, Lock, User, Eye, EyeOff, AlertCircle, Loader2, CheckCircle, Phone } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 
@@ -23,12 +23,23 @@ export default function RegisterPage() {
   const { signUp, signInWithGoogle } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const saveProfile = async (uid: string, displayName: string | null, emailAddr: string, whatsappNumber?: string) => {
+    try {
+      await fetch("/api/users/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firebaseUid: uid, displayName, email: emailAddr, whatsappNumber }),
+      });
+    } catch { /* non-fatal */ }
+  };
 
   const strengthLevel = password.length >= 8
     ? (password.match(/[A-Z]/) && password.match(/[0-9]/) ? "strong" : "medium")
@@ -40,7 +51,8 @@ export default function RegisterPage() {
     setError("");
     setGoogleLoading(true);
     try {
-      await signInWithGoogle();
+      const googleUser = await signInWithGoogle();
+      await saveProfile(googleUser.uid, googleUser.displayName, googleUser.email ?? "");
       router.push("/dashboard");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "";
@@ -59,7 +71,8 @@ export default function RegisterPage() {
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
     setLoading(true);
     try {
-      await signUp(email, password, name);
+      const newUser = await signUp(email, password, name);
+      await saveProfile(newUser.uid, name, email, whatsapp || undefined);
       router.push("/dashboard");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "";
@@ -161,6 +174,19 @@ export default function RegisterPage() {
                   onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
                   onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.08)")} />
               </div>
+            </div>
+
+            {/* WhatsApp */}
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#a1a1aa", marginBottom: 8, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>WhatsApp Number</label>
+              <div style={{ position: "relative" }}>
+                <Phone size={15} color="#52525b" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
+                <input type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="+91 98765 43210 (optional)"
+                  style={inputStyle}
+                  onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
+                  onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.08)")} />
+              </div>
+              <p style={{ fontSize: 11, color: "#52525b", marginTop: 4 }}>Used for WhatsApp invoice alerts (optional)</p>
             </div>
 
             {/* Password */}

@@ -1,20 +1,27 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { approvals } from "@/lib/schema";
-import { eq } from "drizzle-orm";
+import { approvals, extractedDocuments } from "@/lib/schema";
+import { eq, and } from "drizzle-orm";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const userId = searchParams.get("userId");
+
   const db = getDb();
   if (!db) return NextResponse.json({ approvals: [] });
   try {
-    const data = await db.select().from(approvals);
-    
-    // Pull real AI flagged items from the new FastAPI extracted_documents
-    const { extractedDocuments } = await import("@/lib/schema");
-    const { eq } = await import("drizzle-orm");
-    
-    const ocrAlerts = await db.select().from(extractedDocuments).where(eq(extractedDocuments.decision, "human_review"));
-    
+    // Filter approvals by userId
+    const data = userId
+      ? await db.select().from(approvals).where(eq(approvals.userId, userId))
+      : [];
+
+    // Filter AI-flagged OCR docs by userId + human_review decision
+    const ocrAlerts = userId
+      ? await db.select().from(extractedDocuments).where(
+          and(eq(extractedDocuments.userId, userId), eq(extractedDocuments.decision, "human_review"))
+        )
+      : [];
+
     const mappedOcrAlerts = ocrAlerts.map(doc => ({
       id: doc.id,
       invoiceId: doc.invoiceId,

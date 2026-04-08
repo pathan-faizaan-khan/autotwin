@@ -71,6 +71,17 @@ export async function POST(req: Request) {
         processingTimeMs: pipelineData.processing_time_ms,
         fileUrl: fileUrl || pipelineData.file_url 
       }).returning();
+
+      // 🔔 Trigger analysis engine (confidence scoring + WhatsApp notification) — non-fatal
+      if (inserted?.id) {
+        axios.post(
+          `${fastApiUrl}/process-invoice-analysis`,
+          { document_id: inserted.id },
+          { timeout: 30000 }
+        ).then(r => console.log("[ProcessInvoice] Analysis triggered:", r.data?.decision))
+         .catch(e => console.warn("[ProcessInvoice] Analysis engine (non-fatal):", e.response?.data || e.message));
+      }
+
       return NextResponse.json({ success: true, data: inserted });
     } catch (dbError: any) {
       console.error("[Next.js] Supabase Insertion Error:", dbError.message);

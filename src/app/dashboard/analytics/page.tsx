@@ -3,10 +3,12 @@
 import { motion } from "framer-motion";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/context/AuthContext";
 import axios from "axios";
 
 export default function AnalyticsPage() {
-  const { data, isLoading } = useQuery({ queryKey: ["analytics"], queryFn: async () => (await axios.get("/api/analytics")).data });
+  const { user } = useAuth();
+  const { data, isLoading } = useQuery({ queryKey: ["analytics", user?.uid], queryFn: async () => (await axios.get(`/api/analytics?userId=${user?.uid || ""}`)).data, enabled: !!user?.uid });
 
   return (
     <div className="pb-24">

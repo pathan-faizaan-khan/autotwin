@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { invoices, transactions } from "@/lib/schema";
+import { extractedDocuments } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const userId = searchParams.get("userId");
+
   const db = getDb();
   if (!db) {
     return NextResponse.json({
@@ -15,8 +19,9 @@ export async function GET() {
   }
 
   try {
-    const { extractedDocuments } = await import("@/lib/schema");
-    const docs = await db.select().from(extractedDocuments);
+    const docs = userId
+      ? await db.select().from(extractedDocuments).where(eq(extractedDocuments.userId, userId))
+      : [];
 
     let totalSpend = 0;
     let anomaliesDetected = 0;

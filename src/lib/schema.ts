@@ -2,6 +2,19 @@ import {
   pgTable, text, real, integer, timestamp, jsonb, uuid, boolean,
 } from "drizzle-orm/pg-core";
 
+// ── Users ──────────────────────────────────────────────────────────────────────
+// Stores profile data synced from Firebase on registration / Google sign-up
+export const users = pgTable("users", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  firebaseUid: text("firebase_uid").notNull().unique(), // matches Firebase auth UID
+  displayName: text("display_name"),
+  email: text("email").notNull(),
+  whatsappNumber: text("whatsapp_number"),              // e.g. "+919876543210"
+  plan: text("plan").default("free"),                   // free | pro | enterprise
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // ── Invoices ───────────────────────────────────────────────────────────────────
 export const invoices = pgTable("invoices", {
   id: uuid("id").defaultRandom().primaryKey(),

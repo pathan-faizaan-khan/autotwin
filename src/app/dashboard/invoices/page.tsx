@@ -17,8 +17,9 @@ export default function InvoicesPage() {
   const [selectedInvoiceUrl, setSelectedInvoiceUrl] = useState<string | null>(null);
 
   const { data: invoices = [], isLoading } = useQuery({ 
-    queryKey: ["invoices"], 
-    queryFn: async () => (await axios.get("/api/invoices")).data.invoices || [], 
+    queryKey: ["invoices", user?.uid], 
+    queryFn: async () => (await axios.get(`/api/invoices?userId=${user?.uid || ""}`)).data.invoices || [], 
+    enabled: !!user?.uid,
     refetchInterval: 10000 
   });
 

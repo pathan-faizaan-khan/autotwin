@@ -4,12 +4,14 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Check, X, ArrowRight, FileText } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/context/AuthContext";
 import axios from "axios";
 
 export default function ExceptionsQueuePage() {
   const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const { data: approvals = [], isLoading } = useQuery({ queryKey: ["approvals"], queryFn: async () => (await axios.get("/api/approvals")).data.approvals || [], refetchInterval: 10000 });
+  const { user } = useAuth();
+  const { data: approvals = [], isLoading } = useQuery({ queryKey: ["approvals", user?.uid], queryFn: async () => (await axios.get(`/api/approvals?userId=${user?.uid || ""}`)).data.approvals || [], enabled: !!user?.uid, refetchInterval: 10000 });
   const pending = approvals.filter((a: any) => a.status === "pending");
 
   const updateStatus = useMutation({
