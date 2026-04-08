@@ -3,14 +3,6 @@ import { getDb } from "@/lib/db";
 import { approvals } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 
-const MOCK_APPROVALS = [
-  { id: "apr-001", invoiceId: "inv-003", vendor: "DigitalOcean", invoiceNo: "INV-2026-0043", amount: 45200, confidence: 48, reason: "Price 340% above 3-month average", requestedBy: "Vision Agent", status: "pending", createdAt: "2026-04-04T08:30:00Z", notes: "" },
-  { id: "apr-002", invoiceId: "inv-006", vendor: "Razorpay", invoiceNo: "INV-2026-0046", amount: 98000, confidence: 33, reason: "Vendor not in approved vendor list. GST not verified.", requestedBy: "Memory Graph Agent", status: "pending", createdAt: "2026-04-02T15:00:00Z", notes: "" },
-  { id: "apr-003", invoiceId: "inv-010", vendor: "Datadog", invoiceNo: "INV-2026-0050", amount: 78000, confidence: 55, reason: "Duplicate invoice suspected — matches INV-2026-0031", requestedBy: "Anomaly Detection Agent", status: "pending", createdAt: "2026-03-31T14:00:00Z", notes: "" },
-  { id: "apr-004", invoiceId: "inv-011", vendor: "TechnoVendor Inc.", invoiceNo: "INV-2026-0051", amount: 147600, confidence: 41, reason: "3× price spike. Previous invoice was ₹49,200 (no contract change)", requestedBy: "Confidence Engine", status: "pending", createdAt: "2026-03-30T11:00:00Z", notes: "" },
-  { id: "apr-005", invoiceId: "inv-012", vendor: "SupplyPro Ltd.", invoiceNo: "INV-2026-0052", amount: 86200, confidence: 58, reason: "3 invoices in 48 hours — abnormal frequency (historical: 1/2 weeks)", requestedBy: "Reflection Agent", status: "pending", createdAt: "2026-03-29T10:00:00Z", notes: "" },
-];
-
 export async function GET() {
   const db = getDb();
   if (!db) return NextResponse.json({ approvals: [] });
@@ -49,13 +41,34 @@ export async function PATCH(req: Request) {
   const db = getDb();
   if (!db) return NextResponse.json({ error: "No DB connection" }, { status: 500 });
   try {
-    const [updated] = await db
-      .update(approvals)
-      .set({ status: body.status, notes: body.notes })
-      .where(eq(approvals.id, body.id))
+    const { extractedDocuments } = await import("@/lib/schema");
+    
+    // First try extractedDocuments
+    let updatedObj = null;
+    const [updatedDoc] = await db
+      .update(extractedDocuments)
+      .set({ status: body.status }) 
+      .where(eq(extractedDocuments.id, body.id))
       .returning();
-    return NextResponse.json({ approval: updated });
-  } catch {
-    return NextResponse.json({ error: "Update failed" }, { status: 500 });
+      
+    if (updatedDoc) {
+      updatedObj = updatedDoc;
+    } else {
+      // Fallback to approvals
+      const [updatedApp] = await db
+        .update(approvals)
+        .set({ status: body.status, notes: body.notes })
+        .where(eq(approvals.id, body.id))
+        .returning();
+      updatedObj = updatedApp;
+    }
+    
+    if (!updatedObj) {
+        return NextResponse.json({ error: "Record not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ approval: updatedObj });
+  } catch (err: any) {
+    return NextResponse.json({ error: "Update failed", details: err.message }, { status: 500 });
   }
 }

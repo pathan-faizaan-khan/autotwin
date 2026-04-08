@@ -48,7 +48,7 @@ export default function LogsPage() {
                      <span className="text-zinc-300">
                        <span className="text-zinc-100 font-bold">{log.action}: </span>
                        {log.details}
-                       {log.confidence && <span className="ml-2 text-violet-400 font-bold">[{log.confidence}% CONF]</span>}
+                       {log.confidence && <span className="ml-2 text-violet-400 font-bold">[{Math.round(log.confidence <= 1 ? log.confidence * 100 : log.confidence)}% CONF]</span>}
                      </span>
                   </div>
                   <div className="text-zinc-600 md:ml-auto md:text-right shrink-0">{log.durationMs}ms</div>

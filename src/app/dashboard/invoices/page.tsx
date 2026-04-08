@@ -14,6 +14,7 @@ export default function InvoicesPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadingStep, setLoadingStep] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedInvoiceUrl, setSelectedInvoiceUrl] = useState<string | null>(null);
 
   const { data: invoices = [], isLoading } = useQuery({ 
     queryKey: ["invoices"], 
@@ -38,7 +39,14 @@ export default function InvoicesPage() {
 
       // 2. Trigger FastAPI Pipeline
       setLoadingStep("Initializing VisionAgent extraction...");
-      await axios.post("/api/process-invoice", { fileUrl: publicUrl, userId: user.uid });
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("userId", user.uid);
+      formData.append("fileUrl", publicUrl);
+
+      await axios.post("/api/process-invoice", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       
       setLoadingStep("Updating Financial Memory Graph...");
       await queryClient.invalidateQueries({ queryKey: ["invoices"] });
@@ -65,6 +73,33 @@ export default function InvoicesPage() {
               <h3 className="text-xl font-bold text-white mb-2 font-outfit">Neural Pipeline Active</h3>
               <p className="text-sm text-zinc-400 font-medium">{loadingStep}</p>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* File Viewer Overlay */}
+      <AnimatePresence>
+        {selectedInvoiceUrl && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/80 backdrop-blur-[8px] flex items-center justify-center p-4 sm:p-10">
+            <div className="absolute inset-0 cursor-pointer" onClick={() => setSelectedInvoiceUrl(null)} />
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} className="bg-[#060606] border border-white/10 rounded-3xl w-full max-w-5xl h-full max-h-[90vh] flex flex-col overflow-hidden relative shadow-2xl z-10">
+              <div className="flex items-center justify-between p-5 border-b border-white/5 bg-white/[0.02]">
+                <h3 className="text-white font-outfit font-medium text-lg flex items-center gap-2">
+                  <FileText size={18} className="text-zinc-500" />
+                  Document Viewer
+                </h3>
+                <button onClick={() => setSelectedInvoiceUrl(null)} className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/10 transition-colors">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 1L1 13M1 1l12 12"/></svg>
+                </button>
+              </div>
+              <div className="flex-1 bg-black/60 p-2 sm:p-6 flex items-center justify-center overflow-hidden">
+                {selectedInvoiceUrl.toLowerCase().includes('.pdf') ? (
+                  <iframe src={selectedInvoiceUrl} className="w-full h-full rounded-2xl bg-zinc-900 border border-white/5" title="PDF Document" />
+                ) : (
+                  <img src={selectedInvoiceUrl} alt="Invoice Document" className="max-w-full max-h-full object-contain rounded-2xl" />
+                )}
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -154,12 +189,12 @@ export default function InvoicesPage() {
 
                    <div className="flex items-center gap-3 max-w-[120px]">
                       <div className="flex-1 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full ${inv.confidence >= 90 ? 'bg-emerald-400' : inv.confidence >= 75 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${inv.confidence}%` }} />
+                        <div className={`h-full rounded-full ${(inv.confidence <= 1 ? inv.confidence * 100 : inv.confidence) >= 90 ? 'bg-emerald-400' : (inv.confidence <= 1 ? inv.confidence * 100 : inv.confidence) >= 75 ? 'bg-amber-400' : 'bg-red-400'}`} style={{ width: `${inv.confidence <= 1 ? inv.confidence * 100 : inv.confidence}%` }} />
                       </div>
-                      <span className="text-xs font-bold text-zinc-400">{inv.confidence}%</span>
+                      <span className="text-xs font-bold text-zinc-400">{Math.round(inv.confidence <= 1 ? inv.confidence * 100 : inv.confidence)}%</span>
                    </div>
 
-                   <button className="w-10 h-10 rounded-full flex items-center justify-center text-zinc-600 hover:bg-white/10 hover:text-white transition-all ml-auto">
+                   <button onClick={() => inv.fileUrl && setSelectedInvoiceUrl(inv.fileUrl)} className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ml-auto ${inv.fileUrl ? 'text-zinc-400 hover:bg-white/10 hover:text-white' : 'text-zinc-800 cursor-not-allowed'}`}>
                       <ArrowUpRight size={18} />
                    </button>
                 </div>

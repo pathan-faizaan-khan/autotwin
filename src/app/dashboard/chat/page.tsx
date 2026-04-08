@@ -52,10 +52,14 @@ export default function ChatPage() {
         setMessages(parsedMsgs);
       } else {
         // Initial welcome message if empty
-        push(chatRef, {
-          role: "ai",
+        const initialMsg = {
+          role: "ai" as const,
           text: "I am logged into the Financial Memory Graph. How can I assist you with your operations today?\n\nTry asking:\n* *\"Show me spending anomalies this week\"*\n* *\"Which vendors are highest risk?\"*\n* *\"What's our budget burn rate?\"*\n* *\"Any duplicate invoices?\"*\n* *\"What's pending in approvals?\"*",
           timestamp: Date.now()
+        };
+        push(chatRef, initialMsg).catch(e => {
+          console.warn("DB Init warning:", e.message);
+          setMessages([initialMsg]);
         });
       }
     });
@@ -127,23 +131,31 @@ export default function ChatPage() {
     
     // Save User Message (Do not await, to prevent infinite hanging if offline)
     const userMsg = {
-      role: "user",
+      role: "user" as const,
       text: currentInput || "Uploaded a file.",
       timestamp: Date.now(),
       ...(attachmentData && { attachment: attachmentData })
     };
-    push(chatRef, userMsg);
+    push(chatRef, userMsg).catch(e => {
+      console.warn("DB Save warning (user):", e.message);
+      setMessages(prev => [...prev, userMsg]); // Push to local state fallback
+    });
 
     try {
       // Send context to AI Route
       const newMsgs = [...messages, userMsg];
-      const { data } = await axios.post("/api/chat", { messages: newMsgs, query: currentInput });
+      const { data } = await axios.post("/api/chat", { messages: newMsgs, query: currentInput, userId: user.uid });
       
       // Save AI Response
-      push(chatRef, {
-        role: "ai",
+      const aiMsg = {
+        role: "ai" as const,
         text: data.reply,
         timestamp: Date.now()
+      };
+      
+      push(chatRef, aiMsg).catch(e => {
+        console.warn("DB Save warning (AI):", e.message);
+        setMessages(prev => [...prev, aiMsg]); // Push to local state fallback
       });
     } catch (err: any) {
       setErrorMsg(err.response?.data?.error || "Failed to contact AI.");

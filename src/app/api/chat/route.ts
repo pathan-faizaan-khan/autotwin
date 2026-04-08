@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { getDb } from "@/lib/db";
+import { extractedDocuments, invoices } from "@/lib/schema";
+import { desc, eq } from "drizzle-orm";
 
 const FINANCIAL_KB: [RegExp, string][] = [
   [/anomal|unusual|spike|suspicious/i, "🔍 **3 anomalies detected in the last 7 days:**\n\n1. **TechnoVendor price spike** — ₹1,47,600 vs ₹49,200 avg (3× increase, no contract change)\n2. **SupplyPro duplicate** — INV-2026-0052 matches INV-2026-0031 exactly\n3. **DigitalOcean surge** — ₹45,200 vs ₹12,800 avg (340% increase)\n\n> 💡 Recommend reviewing all 3 in the Approvals queue immediately."],
@@ -28,40 +31,68 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { query, messages } = await req.json();
+  const { query, messages, userId } = await req.json();
 
   console.log("=== CHAT API ROUTE HIT ===");
   console.log("Incoming query:", query);
-  console.log("API Key present:", !!process.env.GEMINI_API_KEY);
+  console.log("API Key present:", !!process.env.GROQ_API_KEY);
 
-  // Try Gemini if API key is set
-  if (process.env.GEMINI_API_KEY) {
+  // Try Groq if API key is set
+  if (process.env.GROQ_API_KEY) {
     try {
-      console.log("Initializing Gemini model...");
-      const { GoogleGenerativeAI } = await import("@google/generative-ai");
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-      const systemPrompt = `You are AutoTwin AI, an intelligent financial co-pilot for an Indian SMB. 
-You have access to their financial data: invoices, vendor spending, budget burn rate, anomaly alerts, and workflow status.
-Key data:
-- Total spend this month: ₹8,85,500
-- Budget: ₹7,00,000 (exceeded by ₹1,85,500)
-- Active vendors: 47
-- Flagged invoices: 3 (TechnoVendor+200%, DigitalOcean+340%, SupplyPro duplicate)
-- Top vendor: AWS (₹2,89,500 / 38% of spend)
-- Burn rate: ₹7.03L/month
-Answer concisely with relevant financial insights. Use markdown formatting. Keep responses under 300 words.
-User question: ${query}`;
-
-      console.log("Calling model.generateContent...");
-      const result = await model.generateContent(systemPrompt);
-      const text = result.response.text();
+      console.log("Initializing Groq SDK...");
+      const { Groq } = await import("groq-sdk");
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
       
-      console.log("Gemini successfully generated response.");
+      let dynamicContext = "";
+      const db = getDb();
+      if (db && userId) {
+        try {
+          const recentDocs = await db.select()
+            .from(extractedDocuments)
+            .where(eq(extractedDocuments.userId, userId))
+            .orderBy(desc(extractedDocuments.createdAt))
+            .limit(20);
+            
+          const recentInvoices = await db.select()
+            .from(invoices)
+            .where(eq(invoices.userId, userId))
+            .orderBy(desc(invoices.createdAt))
+            .limit(20);
+            
+          dynamicContext = `
+Here is the live data from the database for this user:
+== EXTRACTED INVOICES (AI PROCESSED) ==
+${JSON.stringify(recentDocs, null, 2)}
+
+== STANDARD INVOICES ==
+${JSON.stringify(recentInvoices, null, 2)}
+`;
+        } catch (dbErr) {
+          console.warn("DB Context Fetch Error:", dbErr);
+        }
+      }
+
+      const systemPrompt = `You are AutoTwin AI, an intelligent financial co-pilot. 
+You have access to real-time financial database records.
+${dynamicContext}
+
+Answer concisely with relevant financial insights based ONLY on the data provided above. If asked about an invoice, look at the extracted or standard invoices list. Use markdown formatting. Keep responses under 300 words.`;
+
+      console.log("Calling Groq completion...");
+      const chatCompletion = await groq.chat.completions.create({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: query || "" }
+        ],
+        model: "llama-3.3-70b-versatile",
+      });
+      const text = chatCompletion.choices[0]?.message?.content || "";
+      
+      console.log("Groq successfully generated response.");
       return NextResponse.json({ reply: text });
     } catch (error: any) {
-      console.error("/// GEMINI API ERROR ///");
+      console.error("/// GROQ API ERROR ///");
       console.error(error.message);
       console.error(error.stack);
       // Fall through to mock
