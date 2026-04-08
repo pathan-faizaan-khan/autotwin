@@ -45,6 +45,7 @@ export async function POST(req: Request) {
       const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
       
       let dynamicContext = "";
+      const rawData: any = { recentDocs: [], recentInvoices: [] };
       const db = getDb();
       if (db && userId) {
         try {
@@ -60,6 +61,9 @@ export async function POST(req: Request) {
             .orderBy(desc(invoices.createdAt))
             .limit(20);
             
+          rawData.recentDocs = recentDocs;
+          rawData.recentInvoices = recentInvoices;
+            
           dynamicContext = `
 Here is the live data from the database for this user:
 == EXTRACTED INVOICES (AI PROCESSED) ==
@@ -73,16 +77,26 @@ ${JSON.stringify(recentInvoices, null, 2)}
         }
       }
 
-      const systemPrompt = `You are AutoTwin AI, an intelligent financial co-pilot. 
+      const systemPrompt = `You are AutoTwin AI, an intelligent, conversational financial co-pilot. 
+You are speaking out loud to the user via a Voice UI, so responses MUST be entirely conversational and brief.
 You have access to real-time financial database records.
 ${dynamicContext}
 
-Answer concisely with relevant financial insights based ONLY on the data provided above. If asked about an invoice, look at the extracted or standard invoices list. Use markdown formatting. Keep responses under 300 words.`;
+IMPORTANT RULES:
+1. Provide ONLY 1 or 2 sentence answers. Do not output heavy text blocks.
+2. Be highly action-oriented. Summarize the situation and ask the user what to do next (e.g. "You have 2 flagged invoices. Should I forcefully approve them?").
+3. Do NOT use markdown formatting like ** or bullet points, because your text is being spoken via Text-to-Speech directly.`;
+
+      const pastMessages = Array.isArray(messages) ? messages.map((m: any) => ({
+         role: (m.role === 'ai' || m.role === 'assistant' ? 'assistant' : 'user') as "assistant" | "user",
+         content: m.text || m.content || ""
+      })) : [];
 
       console.log("Calling Groq completion...");
       const chatCompletion = await groq.chat.completions.create({
         messages: [
           { role: "system", content: systemPrompt },
+          ...pastMessages,
           { role: "user", content: query || "" }
         ],
         model: "llama-3.3-70b-versatile",
@@ -90,7 +104,7 @@ Answer concisely with relevant financial insights based ONLY on the data provide
       const text = chatCompletion.choices[0]?.message?.content || "";
       
       console.log("Groq successfully generated response.");
-      return NextResponse.json({ reply: text });
+      return NextResponse.json({ reply: text, rawData });
     } catch (error: any) {
       console.error("/// GROQ API ERROR ///");
       console.error(error.message);
