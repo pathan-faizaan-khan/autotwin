@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     console.log("[Webhook] Checking for unread messages with attachments...");
     const listRes = await gmail.users.messages.list({
       userId: "me",
-      maxResults: 1,
+      maxResults: 1,   // fetch up to 5 so stuck old emails don't block new ones
       q: "is:unread has:attachment in:inbox",
     });
 
@@ -124,7 +124,14 @@ export async function POST(req: Request) {
           console.warn("[Webhook] ⚠️ gmailMessageId column missing — run scripts/migrate-gmail-dedup.mjs");
         }
         if (alreadySaved.length > 0) {
-          console.log(`[Webhook] Skipped — already in DB: ${msgRef.id}`);
+          console.log(`[Webhook] Skipped — already in DB: ${msgRef.id}. Marking as read to unblock queue...`);
+          // Force read so this stuck email stops appearing in is:unread queries
+          // and blocking new invoice emails from being processed.
+          await gmail.users.messages.modify({
+            userId: "me",
+            id: msgRef.id,
+            requestBody: { removeLabelIds: ["UNREAD"] }
+          }).catch(e => console.warn("[Webhook] Could not mark old email as read:", e.message));
           continue;
         }
 
