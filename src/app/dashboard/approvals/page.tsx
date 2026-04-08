@@ -1,11 +1,13 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { AlertTriangle, Check, X, ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { AlertTriangle, Check, X, ArrowRight, FileText } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 
 export default function ExceptionsQueuePage() {
+  const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { data: approvals = [], isLoading } = useQuery({ queryKey: ["approvals"], queryFn: async () => (await axios.get("/api/approvals")).data.approvals || [], refetchInterval: 10000 });
   const pending = approvals.filter((a: any) => a.status === "pending");
@@ -75,8 +77,12 @@ export default function ExceptionsQueuePage() {
                       </button>
                    </div>
 
-                   <button className="text-sm font-semibold text-zinc-500 hover:text-white transition-colors flex items-center gap-2 w-fit">
-                      Analyze original PDF <ArrowRight size={14} />
+                   <button 
+                      onClick={() => setSelectedFileUrl(app.fileUrl)}
+                      disabled={!app.fileUrl} 
+                      className="text-sm font-semibold text-zinc-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 w-fit"
+                   >
+                      {app.fileUrl ? "Analyze original PDF" : "No Document Attached"} <ArrowRight size={14} />
                    </button>
                 </div>
               </motion.div>
@@ -84,6 +90,50 @@ export default function ExceptionsQueuePage() {
           </div>
         )}
       </div>
+
+      {/* Document Viewer Modal */}
+      <AnimatePresence>
+        {selectedFileUrl && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          >
+             <motion.div 
+                initial={{ scale: 0.95, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.95, opacity: 0 }}
+                className="bg-[#111] border border-white/10 rounded-3xl overflow-hidden w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl relative"
+             >
+                <div className="flex justify-between items-center px-6 py-4 border-b border-white/10 bg-black/50">
+                   <div className="flex items-center gap-3">
+                      <FileText className="text-violet-400" size={20} />
+                      <span className="font-bold text-white font-outfit text-lg">Source Document Viewer</span>
+                   </div>
+                   <button 
+                     onClick={() => setSelectedFileUrl(null)} 
+                     className="text-zinc-500 hover:text-white bg-white/5 rounded-full p-2 transition-colors"
+                   >
+                      <X size={20} />
+                   </button>
+                </div>
+                <div className="w-full flex-1 bg-zinc-950 relative">
+                   {selectedFileUrl.toLowerCase().match(/\.(jpeg|jpg|gif|png|webp)$/) ? (
+                      <img src={selectedFileUrl} alt="Document" className="w-full h-full object-contain p-4" />
+                   ) : (
+                      <iframe 
+                         src={selectedFileUrl} 
+                         className="w-full h-full border-none" 
+                         title="PDF Viewer"
+                         loading="lazy"
+                      />
+                   )}
+                </div>
+             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -21,6 +21,7 @@ export async function GET() {
       vendor: doc.vendor,
       invoiceNo: String(doc.invoiceId).substring(0, 8).toUpperCase(),
       amount: doc.amount,
+      fileUrl: doc.fileUrl,
       confidence: doc.confidence,
       reason: doc.explanation || `Risk Score: ${(doc.riskScore * 100).toFixed(0)}%`,
       requestedBy: "AutoTwin OCR Engine",
