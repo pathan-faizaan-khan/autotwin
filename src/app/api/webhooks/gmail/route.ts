@@ -7,16 +7,24 @@ import { analyzeIsInvoice } from "@/lib/agents/emailAnalyzer";
 import axios from "axios";
 
 // ─── Module-level state ───────────────────────────────────────────────────────
-// In-memory lock: prevents two concurrent requests from double-processing the
-// same message within a single server lifetime.
+// In-memory lock: prevents two concurrent requests (within the same server
+// process) from double-processing the same message simultaneously.
 const processingIds = new Set<string>();
-
-// Per-user lastHistoryId: used by the History API guard (see below).
-// Lost on restart → recovers automatically on the first notification after restart.
-const lastHistoryIds = new Map<string, string>();
 
 export async function POST(req: Request) {
   try {
+    // ── Security: verify shared secret ───────────────────────────────────────
+    // Configure the Pub/Sub push URL as:
+    //   https://your-domain.vercel.app/api/webhooks/gmail?token=<WEBHOOK_SECRET>
+    // Requests without the correct token are rejected immediately.
+    const { searchParams } = new URL(req.url);
+    const webhookSecret = process.env.WEBHOOK_SECRET;
+    if (webhookSecret && searchParams.get("token") !== webhookSecret) {
+      console.warn("[Webhook] ❌ Unauthorized — invalid or missing token");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     // 1. Parse Pub/Sub push notification
     const body = await req.json();
     const message = body?.message;
@@ -24,24 +32,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    // ── Security: verify shared secret token ─────────────────────────────────
-    // In production the Pub/Sub push URL is set to:
-    //   https://yourdomain.vercel.app/api/webhooks/gmail?token=<WEBHOOK_SECRET>
-    // Any request without the correct token is rejected immediately.
-    const { searchParams } = new URL(req.url);
-    const webhookSecret = process.env.WEBHOOK_SECRET;
-    if (webhookSecret && searchParams.get("token") !== webhookSecret) {
-      console.warn("[Webhook] ❌ Unauthorized request — invalid or missing token");
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    // ─────────────────────────────────────────────────────────────────────────
-
     const decodedData = Buffer.from(message.data, "base64").toString("utf8");
-    const { emailAddress, historyId: newHistoryId } = JSON.parse(decodedData);
+    const { emailAddress } = JSON.parse(decodedData);
+    console.log(`[Webhook] Triggered for: ${emailAddress}`);
 
-    console.log(`[Webhook] Triggered for: ${emailAddress} (historyId: ${newHistoryId})`);
-
-    // 2. Get validated token from DB
+    // 2. Look up the active Gmail integration token
     const db = getDb();
     if (!db) return NextResponse.json({ ok: true });
 
@@ -56,7 +51,7 @@ export async function POST(req: Request) {
     }) ?? allGmail.find(i => i.accessToken && i.enabled);
 
     if (!target?.accessToken) {
-      console.error("[Webhook] No enabled Gmail integration in DB. User must reconnect from Settings.");
+      console.error("[Webhook] No enabled Gmail integration. User must reconnect.");
       return NextResponse.json({ ok: true });
     }
 
@@ -65,11 +60,11 @@ export async function POST(req: Request) {
     catch { tokenData = { accessToken: target.accessToken }; }
 
     if (!tokenData.refreshToken?.startsWith("1//")) {
-      console.error("[Webhook] Stale Firebase token detected. User must Disconnect and Reconnect Gmail.");
+      console.error("[Webhook] Stale token — user must Disconnect and Reconnect Gmail.");
       return NextResponse.json({ ok: true });
     }
 
-    // 3. Build Gmail client
+    // 3. Build Gmail client (refresh_token handles expiry automatically)
     const oAuth2Client = new google.auth.OAuth2(
       process.env.GMAIL_CLIENT_ID,
       process.env.GMAIL_CLIENT_SECRET
@@ -79,46 +74,18 @@ export async function POST(req: Request) {
       refresh_token: tokenData.refreshToken,
       expiry_date: tokenData.expiryDate,
     });
-
     const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
 
-    // ─── GUARD: History API filter ────────────────────────────────────────────
-    // The root cause of the infinite loop: when we mark an email as "read"
-    // (removing the UNREAD label), Gmail fires ANOTHER Pub/Sub notification.
-    // That notification also runs this webhook, which marks as read again → loop.
-    //
-    // Fix: use gmail.users.history.list with historyTypes=['messageAdded'].
-    // This ONLY returns events where a new message was added to the mailbox.
-    // Label changes (our own mark-as-read) produce NO results → we return early.
-    const storedHistoryId = lastHistoryIds.get(emailAddress);
-    lastHistoryIds.set(emailAddress, newHistoryId); // always advance the cursor
-
-    if (storedHistoryId) {
-      const histRes = await gmail.users.history.list({
-        userId: "me",
-        startHistoryId: storedHistoryId,
-        historyTypes: ["messageAdded"],
-      }).catch(() => null);
-
-      const addedMessages = histRes?.data?.history?.flatMap(h => h.messagesAdded ?? []) ?? [];
-
-      if (addedMessages.length === 0) {
-        // This notification was triggered by a label change (e.g. our mark-as-read).
-        // There are no genuinely new messages — skip entirely to break the loop.
-        console.log(`[Webhook] Skipped — label-change notification only (no new messages added)`);
-        return NextResponse.json({ ok: true, processed: 0 });
-      }
-
-      console.log(`[Webhook] ✅ History check passed — ${addedMessages.length} new message(s) arrived`);
-    } else {
-      // First notification for this user since server start — no baseline historyId yet.
-      // Proceed normally; the History cursor is now set for all future notifications.
-      console.log(`[Webhook] First notification since server start — proceeding without history filter`);
-    }
+    // 4. Get latest unread inbox message with an attachment
+    // ─── Why this stops the "infinite loop" ──────────────────────────────────
+    // When we process an email we mark it as READ immediately (step 6 below).
+    // Subsequent Pub/Sub notifications (triggered by that label change) will
+    // hit this query and find ZERO results → fast return, nothing processed.
+    // Combined with:
+    //   • In-memory lock  → prevents concurrent same-process double-processing
+    //   • DB gmailMessageId dedup → prevents re-processing after server restart
     // ─────────────────────────────────────────────────────────────────────────
-
-    // 4. Fetch latest unread inbox message with an attachment
-    console.log("[Webhook] Fetching latest unread message with attachment...");
+    console.log("[Webhook] Checking for unread messages with attachments...");
     const listRes = await gmail.users.messages.list({
       userId: "me",
       maxResults: 1,
@@ -127,7 +94,7 @@ export async function POST(req: Request) {
 
     const messages = listRes.data.messages || [];
     if (messages.length === 0) {
-      console.log("[Webhook] No unread messages with attachments found. Done.");
+      console.log("[Webhook] No unread messages with attachments. Done.");
       return NextResponse.json({ ok: true, processed: 0 });
     }
 
@@ -136,16 +103,16 @@ export async function POST(req: Request) {
     for (const msgRef of messages) {
       if (!msgRef.id) continue;
 
-      // Guard A — In-memory lock (same process, concurrent requests)
+      // Guard A — In-memory lock (concurrent requests, same process)
       if (processingIds.has(msgRef.id)) {
-        console.log(`[Webhook] Skipped — already processing message ${msgRef.id}`);
+        console.log(`[Webhook] Skipped — already in flight: ${msgRef.id}`);
         continue;
       }
       processingIds.add(msgRef.id);
 
       try {
-        // Guard B — DB-level dedup (survives server restarts)
-        // Requires gmail_message_id column: run scripts/migrate-gmail-dedup.mjs once.
+        // Guard B — DB dedup (survives server restarts & hot reloads)
+        // Requires the gmail_message_id column: run scripts/migrate-gmail-dedup.mjs
         let alreadySaved: { id: string }[] = [];
         try {
           alreadySaved = await db
@@ -154,26 +121,25 @@ export async function POST(req: Request) {
             .where(eq(extractedDocuments.gmailMessageId, msgRef.id))
             .limit(1);
         } catch {
-          // Column may not exist yet if migration hasn't been run — proceed anyway
           console.warn("[Webhook] ⚠️ gmailMessageId column missing — run scripts/migrate-gmail-dedup.mjs");
         }
-
         if (alreadySaved.length > 0) {
-          console.log(`[Webhook] Skipped — already in DB: message ${msgRef.id}`);
+          console.log(`[Webhook] Skipped — already in DB: ${msgRef.id}`);
           continue;
         }
 
-        // 5. Fetch full message & mark as read immediately
+        // 5. Fetch full message details
         const msgDetails = await gmail.users.messages.get({ userId: "me", id: msgRef.id });
         const msgPayload = msgDetails.data.payload;
-
         const subject = msgPayload?.headers?.find(h => h.name?.toLowerCase() === "subject")?.value || "No Subject";
         const snippet = msgDetails.data.snippet || "";
         const parts = msgPayload?.parts || [];
         const filenames = parts.filter(p => !!p.filename && p.filename.length > 0).map(p => p.filename!);
 
-        // Mark as read before the LLM call so even if we crash mid-way,
-        // the next Pub/Sub retry won't reprocess this email.
+        // 6. Mark as READ immediately — this is what stops the loop.
+        // Once marked read, all future is:unread queries miss this email.
+        // If we crash after this line, the email is saved from re-processing
+        // by the DB dedup check above (Guard B).
         await gmail.users.messages.modify({
           userId: "me",
           id: msgRef.id,
@@ -182,19 +148,19 @@ export async function POST(req: Request) {
 
         console.log(`[Webhook] Checking: "${subject}" | Files: ${filenames.join(", ") || "none"}`);
 
-        // 6. LLM classification
+        // 7. LLM classification — is this an invoice email?
         const isInvoice = await analyzeIsInvoice(subject, snippet, filenames);
         if (!isInvoice) {
           console.log(`[Webhook] Skipped — not an invoice: "${subject}"`);
           continue;
         }
-
         console.log(`[Webhook] ✅ Invoice detected: "${subject}"`);
 
-        // 7. Download attachments and pipeline to FastAPI
+        // 8. Download each supported attachment and send to FastAPI
         for (const part of parts) {
           const filename = part.filename?.toLowerCase() ?? "";
-          if (!part.body?.attachmentId || (!filename.endsWith(".pdf") && !filename.endsWith(".png") && !filename.endsWith(".jpg") && !filename.endsWith(".jpeg"))) continue;
+          const isSupportedType = filename.endsWith(".pdf") || filename.endsWith(".png") || filename.endsWith(".jpg") || filename.endsWith(".jpeg");
+          if (!part.body?.attachmentId || !isSupportedType) continue;
 
           const attachment = await gmail.users.messages.attachments.get({
             userId: "me",
@@ -203,7 +169,7 @@ export async function POST(req: Request) {
           });
           if (!attachment.data.data) continue;
 
-          console.log(`[Webhook] 📎 Downloading "${part.filename}" and sending to FastAPI...`);
+          console.log(`[Webhook] 📎 Downloading "${part.filename}" → FastAPI...`);
 
           const buffer = Buffer.from(attachment.data.data, "base64");
           const ext = part.filename!.toLowerCase().split(".").pop() ?? "pdf";
@@ -223,9 +189,10 @@ export async function POST(req: Request) {
               continue;
             }
 
+            // 9. Save to DB with gmailMessageId so Guard B catches future retries
             const [savedDoc] = await db.insert(extractedDocuments).values({
               userId: target.userId,
-              gmailMessageId: msgRef.id,       // ← persistent dedup key
+              gmailMessageId: msgRef.id,        // ← persistent dedup key
               invoiceId: pipelineData.invoice_id,
               vendor: pipelineData.vendor,
               amount: pipelineData.amount,
@@ -243,10 +210,10 @@ export async function POST(req: Request) {
               fileUrl: pipelineData.file_url,
             }).returning({ id: extractedDocuments.id });
 
-            console.log(`[Webhook] ✅ Invoice saved to DB from "${part.filename}" — ID: ${savedDoc?.id}`);
+            console.log(`[Webhook] ✅ Saved "${part.filename}" — DB ID: ${savedDoc?.id}`);
             processedCount++;
 
-            // 🔔 Trigger analysis engine
+            // 10. Trigger analysis engine (non-fatal if unavailable)
             if (savedDoc?.id) {
               try {
                 const analysisRes = await axios.post(
@@ -256,7 +223,7 @@ export async function POST(req: Request) {
                 );
                 console.log(`[Webhook] ✅ Analysis complete for ${savedDoc.id}:`, analysisRes.data?.decision);
               } catch (analysisErr: any) {
-                console.warn(`[Webhook] ⚠️ Analysis engine error (non-fatal):`, analysisErr.response?.data || analysisErr.message);
+                console.warn(`[Webhook] ⚠️ Analysis engine (non-fatal):`, analysisErr.response?.data || analysisErr.message);
               }
             }
           } catch (axErr: any) {
@@ -268,7 +235,7 @@ export async function POST(req: Request) {
       }
     }
 
-    console.log(`[Webhook] Done. Processed ${processedCount} invoices.`);
+    console.log(`[Webhook] Done. Processed ${processedCount} invoice(s).`);
     return NextResponse.json({ ok: true, processed: processedCount });
 
   } catch (err: any) {
