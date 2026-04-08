@@ -119,6 +119,7 @@ export const userSettings = pgTable("user_settings", {
 export const extractedDocuments = pgTable("extracted_documents", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: text("user_id").notNull(),
+  gmailMessageId: text("gmail_message_id"),              // dedup key — prevents reprocessing on server restart
   invoiceId: text("invoice_id").notNull(),
   vendor: text("vendor").notNull(),
   amount: real("amount").notNull(),

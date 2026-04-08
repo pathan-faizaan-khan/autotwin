@@ -20,7 +20,8 @@ export default function InvoicesPage() {
     queryKey: ["invoices", user?.uid], 
     queryFn: async () => (await axios.get(`/api/invoices?userId=${user?.uid || ""}`)).data.invoices || [], 
     enabled: !!user?.uid,
-    refetchInterval: 10000 
+    refetchInterval: 30000,
+    refetchOnWindowFocus: false
   });
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

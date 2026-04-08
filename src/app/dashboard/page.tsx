@@ -10,9 +10,9 @@ import Link from "next/link";
 export default function DashboardPage() {
   const { user } = useAuth();
   
-  const { data: analytics, isLoading: analyticsLoading } = useQuery({ queryKey: ["analytics", user?.uid], queryFn: async () => (await axios.get(`/api/analytics?userId=${user?.uid || ""}`)).data, enabled: !!user?.uid });
-  const { data: workflows = [], isLoading: workflowsLoading } = useQuery({ queryKey: ["workflows"], queryFn: async () => (await axios.get("/api/workflow")).data.workflows || [], refetchInterval: 5000 });
-  const { data: approvals = [] } = useQuery({ queryKey: ["approvals", user?.uid], queryFn: async () => (await axios.get(`/api/approvals?userId=${user?.uid || ""}`)).data.approvals || [], enabled: !!user?.uid, refetchInterval: 5000 });
+  const { data: analytics, isLoading: analyticsLoading } = useQuery({ queryKey: ["analytics", user?.uid], queryFn: async () => (await axios.get(`/api/analytics?userId=${user?.uid || ""}`)).data, enabled: !!user?.uid, refetchOnWindowFocus: false });
+  const { data: workflows = [], isLoading: workflowsLoading } = useQuery({ queryKey: ["workflows"], queryFn: async () => (await axios.get("/api/workflow")).data.workflows || [], refetchInterval: 30000, refetchOnWindowFocus: false });
+  const { data: approvals = [] } = useQuery({ queryKey: ["approvals", user?.uid], queryFn: async () => (await axios.get(`/api/approvals?userId=${user?.uid || ""}`)).data.approvals || [], enabled: !!user?.uid, refetchInterval: 30000, refetchOnWindowFocus: false });
 
   const pendingApprovals = approvals.filter((a: any) => a.status === "pending");
   const totalSpend = analytics?.summary?.totalSpend || 0;

@@ -11,7 +11,7 @@ export default function ExceptionsQueuePage() {
   const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { data: approvals = [], isLoading } = useQuery({ queryKey: ["approvals", user?.uid], queryFn: async () => (await axios.get(`/api/approvals?userId=${user?.uid || ""}`)).data.approvals || [], enabled: !!user?.uid, refetchInterval: 10000 });
+  const { data: approvals = [], isLoading } = useQuery({ queryKey: ["approvals", user?.uid], queryFn: async () => (await axios.get(`/api/approvals?userId=${user?.uid || ""}`)).data.approvals || [], enabled: !!user?.uid, refetchInterval: 30000, refetchOnWindowFocus: false });
   const pending = approvals.filter((a: any) => a.status === "pending");
 
   const updateStatus = useMutation({
