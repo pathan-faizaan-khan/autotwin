@@ -95,6 +95,21 @@ export async function POST(req: Request) {
       processingIds.add(msgRef.id);
 
       try {
+      // DB dedup: skip if this message was already saved (prevents unique constraint crash
+      // and stops reprocessing the same email after server restarts)
+      let alreadySaved: { id: string }[] = [];
+      try {
+        alreadySaved = await db
+          .select({ id: extractedDocuments.id })
+          .from(extractedDocuments)
+          .where(eq(extractedDocuments.gmailMessageId, msgRef.id))
+          .limit(1);
+      } catch { /* column may not exist yet — harmless, will still process */ }
+      if (alreadySaved.length > 0) {
+        console.log(`[Webhook] Skipped — already in DB: ${msgRef.id}`);
+        continue;
+      }
+
       // 5. Fetch full message
       const msgDetails = await gmail.users.messages.get({ userId: "me", id: msgRef.id });
       const msgPayload = msgDetails.data.payload;
