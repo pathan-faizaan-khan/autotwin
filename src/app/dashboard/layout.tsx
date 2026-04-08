@@ -7,6 +7,7 @@ import Sidebar from "@/components/dashboard/Sidebar";
 import TopNav from "@/components/dashboard/TopNav";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { useAuth } from "@/context/AuthContext";
+import GlobalVoiceCopilot from "@/components/dashboard/GlobalVoiceCopilot";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -47,6 +48,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {children}
             </div>
           </main>
+          
+          {/* Floating Copilot Component */}
+          <GlobalVoiceCopilot />
+          
         </div>
       </QueryProvider>
     </div>
