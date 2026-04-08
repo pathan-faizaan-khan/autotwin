@@ -74,12 +74,23 @@ export async function POST(req: Request) {
         oAuth2Client.setCredentials({ access_token: accessToken });
         const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
         const topicName = process.env.NEXT_PUBLIC_GMAIL_PUBSUB_TOPIC || "projects/autotwin-ai/topics/gmail-sync-topic";
+
+        // The Pub/Sub subscription push endpoint should be set to:
+        //   https://<your-vercel-domain>/api/webhooks/gmail?token=<WEBHOOK_SECRET>
+        // This is configured once in Google Cloud Console → Pub/Sub → Subscriptions.
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        const webhookSecret = process.env.WEBHOOK_SECRET;
+        const pushEndpoint = webhookSecret
+          ? `${appUrl}/api/webhooks/gmail?token=${webhookSecret}`
+          : `${appUrl}/api/webhooks/gmail`;
+        console.log(`[Integrations] Gmail watch activating. Push endpoint: ${pushEndpoint}`);
+
         await gmail.users.watch({
           userId: "me",
           requestBody: { topicName, labelIds: ["INBOX"] }
         });
         watchStatus = `Active: ${topicName}`;
-        console.log(`[Integrations] Gmail watch activated: ${topicName}`);
+        console.log(`[Integrations] Gmail watch activated for topic: ${topicName}`);
       } catch (watchErr: any) {
         watchStatus = `FAILED: ${watchErr.message}`;
         console.error("[Integrations] Gmail Watch failed:", watchErr.message);

@@ -24,6 +24,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
 
+    // ── Security: verify shared secret token ─────────────────────────────────
+    // In production the Pub/Sub push URL is set to:
+    //   https://yourdomain.vercel.app/api/webhooks/gmail?token=<WEBHOOK_SECRET>
+    // Any request without the correct token is rejected immediately.
+    const { searchParams } = new URL(req.url);
+    const webhookSecret = process.env.WEBHOOK_SECRET;
+    if (webhookSecret && searchParams.get("token") !== webhookSecret) {
+      console.warn("[Webhook] ❌ Unauthorized request — invalid or missing token");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const decodedData = Buffer.from(message.data, "base64").toString("utf8");
     const { emailAddress, historyId: newHistoryId } = JSON.parse(decodedData);
 

@@ -5,6 +5,15 @@
     },
     "src/app/api/process-invoice/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/gmail-renew/route.ts": {
+      "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/gmail-renew",
+      "schedule": "0 3 */6 * *"
+    }
+  ]
 }
