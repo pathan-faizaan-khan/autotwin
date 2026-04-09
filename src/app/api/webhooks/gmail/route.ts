@@ -137,7 +137,6 @@ export async function POST(req: Request) {
               // 8. Save to DB
               const [savedDoc] = await db.insert(extractedDocuments).values({
                 userId: target.userId,
-                gmailMessageId: msgRef.id, // Keeping this for internal logging, unique constraint check removed as requested
                 invoiceId: d.invoice_id,
                 vendor: d.vendor,
                 amount: d.amount,
