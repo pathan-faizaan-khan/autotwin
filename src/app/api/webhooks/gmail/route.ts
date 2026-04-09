@@ -32,11 +32,22 @@ export async function POST(req: Request) {
     const { emailAddress } = JSON.parse(decodedData);
     console.log(`[Webhook] Triggered for: ${emailAddress}`);
 
-    // 2. Get validated token from DB
+    // 2. Get validated token from DB for THIS specific email user
     const db = getDb();
     if (!db) return NextResponse.json({ ok: true });
 
-    const allGmail = await db.select().from(integrations).where(eq(integrations.provider, "gmail"));
+    const { users } = await import("@/lib/schema");
+    const [dbUser] = await db.select().from(users).where(eq(users.email, emailAddress)).limit(1);
+    
+    if (!dbUser) {
+      console.error(`[Webhook] No user found in DB for email: ${emailAddress}`);
+      return NextResponse.json({ ok: true });
+    }
+
+    const allGmail = await db.select().from(integrations).where(
+      and(eq(integrations.provider, "gmail"), eq(integrations.userId, dbUser.firebaseUid))
+    );
+    
     const target = allGmail.find(i => {
       if (!i.accessToken || !i.enabled) return false;
       try { return JSON.parse(i.accessToken).refreshToken?.startsWith("1//"); }
@@ -44,7 +55,7 @@ export async function POST(req: Request) {
     }) ?? allGmail.find(i => i.accessToken && i.enabled);
 
     if (!target?.accessToken) {
-      console.error("[Webhook] No enabled Gmail integration in DB.");
+      console.error(`[Webhook] No enabled Gmail integration for user: ${emailAddress}`);
       return NextResponse.json({ ok: true });
     }
 
@@ -64,12 +75,11 @@ export async function POST(req: Request) {
     });
     const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
 
-    // 4. Fetch ONLY the latest 1 UNREAD message
-    console.log("[Webhook] Fetching latest unread message...");
+    // 4. Fetch the 5 most recent messages directly (bypasses Gmail search index delay)
+    console.log("[Webhook] Fetching recent messages to avoid search index lag...");
     const listRes = await gmail.users.messages.list({
       userId: "me",
-      maxResults: 1,
-      q: "is:unread has:attachment in:inbox",
+      maxResults: 5,
     });
 
     const messages = listRes.data.messages || [];
