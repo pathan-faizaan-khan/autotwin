@@ -4,9 +4,33 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import "regenerator-runtime/runtime";
 import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognition";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, MicOff, X, Loader2, Sparkles, Volume2, Database, Receipt, Send } from "lucide-react";
+import { Mic, MicOff, X, Loader2, Sparkles, Volume2, Database, Receipt, Send, Globe } from "lucide-react";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
+
+// ── Supported languages ───────────────────────────────────────────────────────
+const LANGUAGES = [
+  { code: "en-US",  label: "English",  flag: "🇺🇸", ttsLang: "en" },
+  { code: "hi-IN",  label: "हिन्दी",    flag: "🇮🇳", ttsLang: "hi" },
+  { code: "te-IN",  label: "తెలుగు",   flag: "🇮🇳", ttsLang: "te" },
+  { code: "ur-PK",  label: "اردو",     flag: "🇵🇰", ttsLang: "ur" },
+  { code: "ar-SA",  label: "العربية",  flag: "🇸🇦", ttsLang: "ar" },
+] as const;
+
+type LangCode = typeof LANGUAGES[number]["code"];
+
+// ── Pick the best TTS voice for a given language ──────────────────────────────
+function pickVoice(ttsLang: string): SpeechSynthesisVoice | null {
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices.length) return null;
+
+  // 1. Exact locale match (e.g. hi-IN voice for hi-IN request)
+  let match = voices.find(v => v.lang.toLowerCase().startsWith(ttsLang.toLowerCase()));
+  // 2. Fallback: partial match on language prefix
+  if (!match) match = voices.find(v => v.lang.toLowerCase().split("-")[0] === ttsLang.toLowerCase().split("-")[0]);
+  // 3. Absolute fallback: first available
+  return match ?? voices[0];
+}
 
 export default function GlobalVoiceCopilot() {
   const { user } = useAuth();
@@ -14,9 +38,12 @@ export default function GlobalVoiceCopilot() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [aiResponse, setAiResponse] = useState("");
   const [contextData, setContextData] = useState<any>(null);
-  const [messages, setMessages] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [textInput, setTextInput] = useState("");
+  const [selectedLang, setSelectedLang] = useState<LangCode>("en-US");
+  const [showLangMenu, setShowLangMenu] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const langMenuRef = useRef<HTMLDivElement>(null);
 
   const {
     transcript,
@@ -27,7 +54,18 @@ export default function GlobalVoiceCopilot() {
 
   const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Auto-submit after voice pause
+  // Close lang menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) {
+        setShowLangMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Auto-submit after 1.5s voice pause
   useEffect(() => {
     if (listening && transcript.length > 0) {
       if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
@@ -37,7 +75,38 @@ export default function GlobalVoiceCopilot() {
       }, 1500);
     }
     return () => { if (typingTimerRef.current) clearTimeout(typingTimerRef.current); };
-  }, [transcript, listening]);
+  }, [transcript, listening]); // eslint-disable-line
+
+  const currentLang = LANGUAGES.find(l => l.code === selectedLang)!;
+
+  const speak = useCallback((text: string) => {
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text.replace(/[*#>`|-]/g, ""));
+    utterance.lang = selectedLang;
+
+    // Voices may not be loaded yet — try loading them first
+    const trySpeak = () => {
+      const voice = pickVoice(currentLang.ttsLang);
+      if (voice) utterance.voice = voice;
+      utterance.rate = 0.95;
+      utterance.pitch = 1;
+      utterance.onend = () => resetTranscript();
+      window.speechSynthesis.speak(utterance);
+    };
+
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      trySpeak();
+    } else {
+      // Wait for voices to load (some browsers load async)
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.onvoiceschanged = null;
+        trySpeak();
+      };
+    }
+  }, [selectedLang, currentLang.ttsLang, resetTranscript]);
 
   const handleAnalyzeQuery = useCallback(async (query: string) => {
     if (!query.trim() || isProcessing) return;
@@ -47,9 +116,9 @@ export default function GlobalVoiceCopilot() {
     setTextInput("");
 
     const currentMessages = [...messages];
-    const updatedMessages: {role: 'user' | 'assistant', content: string}[] = [
+    const updatedMessages: { role: "user" | "assistant"; content: string }[] = [
       ...currentMessages,
-      { role: 'user', content: query }
+      { role: "user", content: query },
     ];
     setMessages(updatedMessages);
 
@@ -58,37 +127,24 @@ export default function GlobalVoiceCopilot() {
         query,
         messages: currentMessages,
         userId: user?.uid,
+        // Tell the AI to respond in the selected language
+        language: currentLang.label,
+        languageCode: selectedLang,
       });
 
       setAiResponse(data.reply);
       setContextData(data.rawData);
-      setMessages([...updatedMessages, { role: 'assistant', content: data.reply }]);
+      setMessages([...updatedMessages, { role: "assistant", content: data.reply }]);
       speak(data.reply);
     } catch {
-      setAiResponse("Unable to connect to the intelligence module. Please try again.");
+      const errMsg = "Unable to connect to the intelligence module. Please try again.";
+      setAiResponse(errMsg);
     } finally {
       setIsProcessing(false);
       resetTranscript();
       setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [messages, isProcessing, user?.uid]);
-
-  const speak = (text: string) => {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(
-      text.replace(/[*#>`|-]/g, "")
-    );
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(v =>
-      /male|david|mark|arthur|google uk english male/i.test(v.name) &&
-      !/female|zira|samantha|victoria/i.test(v.name)
-    ) || voices.find(v => v.lang.startsWith("en")) || voices[0];
-    if (preferred) utterance.voice = preferred;
-    // After speaking: reset — let user choose to mic or type again
-    utterance.onend = () => resetTranscript();
-    window.speechSynthesis.speak(utterance);
-  };
+  }, [messages, isProcessing, user?.uid, selectedLang, currentLang.label, speak, resetTranscript]);
 
   const toggleMic = () => {
     if (listening) {
@@ -96,7 +152,7 @@ export default function GlobalVoiceCopilot() {
       if (transcript.trim()) handleAnalyzeQuery(transcript);
     } else {
       resetTranscript();
-      SpeechRecognition.startListening({ continuous: true, language: "en-US" });
+      SpeechRecognition.startListening({ continuous: true, language: selectedLang });
     }
   };
 
@@ -108,6 +164,7 @@ export default function GlobalVoiceCopilot() {
     setTextInput("");
     setAiResponse("");
     setMessages([]);
+    setShowLangMenu(false);
   };
 
   const openCopilot = () => {
@@ -177,15 +234,70 @@ export default function GlobalVoiceCopilot() {
 
               {/* Header */}
               <div className="flex justify-between items-center px-6 pt-5 pb-3 relative z-10">
-                <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full">
-                  {listening
-                    ? <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                    : <Sparkles size={13} className="text-violet-400" />
-                  }
-                  <span className="text-xs font-bold uppercase tracking-widest text-zinc-300">
-                    {listening ? "Listening..." : "AutoTwin Copilot"}
-                  </span>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full">
+                    {listening
+                      ? <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      : <Sparkles size={13} className="text-violet-400" />
+                    }
+                    <span className="text-xs font-bold uppercase tracking-widest text-zinc-300">
+                      {listening ? "Listening..." : "AutoTwin Copilot"}
+                    </span>
+                  </div>
+
+                  {/* Language Selector */}
+                  <div ref={langMenuRef} className="relative">
+                    <button
+                      onClick={() => setShowLangMenu(!showLangMenu)}
+                      title="Change language"
+                      className="flex items-center gap-1.5 bg-white/[0.04] border border-white/[0.08] hover:border-white/20 px-2.5 py-1.5 rounded-full text-xs font-bold text-zinc-400 hover:text-white transition-all"
+                    >
+                      <span>{currentLang.flag}</span>
+                      <Globe size={11} />
+                    </button>
+
+                    <AnimatePresence>
+                      {showLangMenu && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 6, scale: 0.96 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute top-10 left-0 bg-[#0a0a0c] border border-white/10 rounded-2xl overflow-hidden shadow-2xl w-[170px] z-50"
+                        >
+                          {LANGUAGES.map(lang => (
+                            <button
+                              key={lang.code}
+                              onClick={() => {
+                                setSelectedLang(lang.code);
+                                setShowLangMenu(false);
+                                // If currently listening, restart with new language
+                                if (listening) {
+                                  SpeechRecognition.stopListening();
+                                  setTimeout(() => {
+                                    SpeechRecognition.startListening({ continuous: true, language: lang.code });
+                                  }, 200);
+                                }
+                              }}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left ${
+                                selectedLang === lang.code
+                                  ? "bg-violet-500/15 text-violet-300"
+                                  : "text-zinc-400 hover:bg-white/[0.04] hover:text-white"
+                              }`}
+                            >
+                              <span className="text-base">{lang.flag}</span>
+                              <span className="font-medium">{lang.label}</span>
+                              {selectedLang === lang.code && (
+                                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-violet-400" />
+                              )}
+                            </button>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
+
                 <button onClick={closeCopilot} className="text-zinc-500 hover:text-white transition-colors bg-white/5 rounded-full p-2">
                   <X size={15} />
                 </button>
@@ -207,11 +319,13 @@ export default function GlobalVoiceCopilot() {
                   </div>
                 ) : listening && transcript ? (
                   <p className="text-base font-outfit text-white/80 italic">
-                    "{transcript}"
+                    &ldquo;{transcript}&rdquo;
                   </p>
                 ) : (
                   <p className="text-sm text-zinc-600">
-                    {micSupported ? "Tap the mic or type below to ask about your finances." : "Type your financial question below."}
+                    {micSupported
+                      ? `Speak in ${currentLang.label} or type below.`
+                      : "Type your financial question below."}
                   </p>
                 )}
               </div>
@@ -219,13 +333,14 @@ export default function GlobalVoiceCopilot() {
               {/* Divider */}
               <div className="mx-6 border-t border-white/5 mb-3" />
 
-              {/* Text Input — ALWAYS VISIBLE */}
+              {/* Input Row */}
               <form onSubmit={handleTextSubmit} className="flex items-center gap-3 px-4 pb-4 relative z-10">
                 {micSupported && (
                   <button
                     type="button"
                     onClick={toggleMic}
                     disabled={isProcessing}
+                    title={listening ? "Stop" : `Speak in ${currentLang.label}`}
                     className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all ${
                       listening
                         ? "bg-red-500 text-white shadow-lg shadow-red-500/30 animate-pulse"
@@ -242,7 +357,12 @@ export default function GlobalVoiceCopilot() {
                   value={textInput}
                   onChange={e => setTextInput(e.target.value)}
                   disabled={isProcessing || listening}
-                  placeholder={listening ? "Speak now..." : "Ask about your invoices, spend, risks..."}
+                  placeholder={
+                    listening
+                      ? `Listening in ${currentLang.label}...`
+                      : `Ask in ${currentLang.label}...`
+                  }
+                  dir={["ur-PK", "ar-SA"].includes(selectedLang) ? "rtl" : "ltr"}
                   className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-2xl px-4 py-2.5 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-violet-500/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 />
 

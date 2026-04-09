@@ -31,7 +31,12 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { query, messages, userId } = await req.json();
+  const { query, messages, userId, language, languageCode } = await req.json();
+
+  // Build a language instruction if non-English is selected
+  const langInstruction = language && language !== "English"
+    ? `CRITICAL: The user is communicating in ${language} (${languageCode}). You MUST respond entirely in ${language}. Do not mix languages. Do not respond in English.`
+    : "";
 
   console.log("=== CHAT API ROUTE HIT ===");
   console.log("Incoming query:", query);
@@ -77,15 +82,16 @@ ${JSON.stringify(recentInvoices, null, 2)}
         }
       }
 
-      const systemPrompt = `You are AutoTwin AI, an intelligent, conversational financial co-pilot. 
+      const systemPrompt = `You are AutoTwin AI, an intelligent, conversational financial co-pilot.
 You are speaking out loud to the user via a Voice UI, so responses MUST be entirely conversational and brief.
 You have access to real-time financial database records.
 ${dynamicContext}
 
 IMPORTANT RULES:
 1. Provide ONLY 1 or 2 sentence answers. Do not output heavy text blocks.
-2. Be highly action-oriented. Summarize the situation and ask the user what to do next (e.g. "You have 2 flagged invoices. Should I forcefully approve them?").
-3. Do NOT use markdown formatting like ** or bullet points, because your text is being spoken via Text-to-Speech directly.`;
+2. Be highly action-oriented. Summarize the situation and ask the user what to do next.
+3. Do NOT use markdown formatting like ** or bullet points, because your text is being spoken via Text-to-Speech directly.
+${langInstruction}`;
 
       const pastMessages = Array.isArray(messages) ? messages.map((m: any) => ({
          role: (m.role === 'ai' || m.role === 'assistant' ? 'assistant' : 'user') as "assistant" | "user",
