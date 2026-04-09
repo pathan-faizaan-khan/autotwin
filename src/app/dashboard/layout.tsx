@@ -17,15 +17,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarWidth, setSidebarWidth] = useState(240);
+  const [checkingSetup, setCheckingSetup] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
+      return;
+    }
+
+    if (!loading && user) {
+      // Check if user is fully onboarded in our Postgres DB
+      fetch(`/api/user/me?firebaseUid=${user.uid}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.needsOnboarding) {
+            router.replace("/onboarding");
+          } else {
+            setCheckingSetup(false);
+          }
+        })
+        .catch(() => setCheckingSetup(false)); // fallback gracefully if API fails
     }
   }, [user, loading, router]);
 
-  if (loading) return null;
-  if (!user) return null;
+  // Block rendering until Firebase loads AND we verify their DB setup status
+  if (loading || checkingSetup || !user) return null;
 
   const isChat = pathname === "/dashboard/chat";
 
