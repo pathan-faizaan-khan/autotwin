@@ -1,28 +1,22 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { invoices } from "@/lib/schema";
+import { extractedDocuments } from "@/lib/schema";
 import { eq } from "drizzle-orm";
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const body = await req.json();
+// GET /api/invoices/[id] — returns full extractedDocument with all AI fields
+export async function GET(req: Request, { params }: { params: { id: string } }) {
   const db = getDb();
-
-  if (!db) {
-    return NextResponse.json({ success: true, id, ...body });
-  }
+  if (!db) return NextResponse.json({ error: "No DB" }, { status: 500 });
 
   try {
-    const [updated] = await db
-      .update(invoices)
-      .set(body)
-      .where(eq(invoices.id, id))
-      .returning();
-    return NextResponse.json({ invoice: updated });
-  } catch {
-    return NextResponse.json({ error: "Failed to update invoice" }, { status: 500 });
+    const [doc] = await db
+      .select()
+      .from(extractedDocuments)
+      .where(eq(extractedDocuments.id, params.id));
+
+    if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ doc });
+  } catch (err) {
+    return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }

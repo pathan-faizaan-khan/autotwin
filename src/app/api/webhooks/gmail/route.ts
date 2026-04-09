@@ -1,14 +1,25 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { integrations, extractedDocuments } from "@/lib/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { google } from "googleapis";
 import { analyzeIsInvoice } from "@/lib/agents/emailAnalyzer";
 import axios from "axios";
 
-// In-memory lock: prevents two simultaneous Pub/Sub notifications
-// from processing the same email at the exact same millisecond
+// In-memory lock prevents two simultaneous notifications processing the same message
 const processingIds = new Set<string>();
+
+// ── Recursively flatten all parts in a Gmail message (handles forwarded emails) ──
+function flattenParts(parts: any[]): any[] {
+  const result: any[] = [];
+  for (const part of parts) {
+    result.push(part);
+    if (part.parts && Array.isArray(part.parts)) {
+      result.push(...flattenParts(part.parts));
+    }
+  }
+  return result;
+}
 
 export async function POST(req: Request) {
   try {
@@ -53,8 +64,7 @@ export async function POST(req: Request) {
     });
     const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
 
-    // 4. Fetch ONLY the latest 1 UNREAD message with attachment
-    // Using maxResults: 1 ensures we do "one transaction at a time"
+    // 4. Fetch ONLY the latest 1 UNREAD message
     console.log("[Webhook] Fetching latest unread message...");
     const listRes = await gmail.users.messages.list({
       userId: "me",
@@ -73,57 +83,106 @@ export async function POST(req: Request) {
     for (const msgRef of messages) {
       if (!msgRef.id) continue;
 
-      // In-memory lock for concurrent requests in same instance
+      // ── In-memory lock ───────────────────────────────────────────────
       if (processingIds.has(msgRef.id)) {
-        console.log(`[Webhook] Skipped — already processing: ${msgRef.id}`);
+        console.log(`[Webhook] Skipped — already processing in-flight: ${msgRef.id}`);
         continue;
       }
       processingIds.add(msgRef.id);
 
       try {
-        // 5. Fetch full details + double-check UNREAD status
-        // This prevents race conditions where two webhooks pick up the same email.
+        // ── DB dedup check using gmailMessageId ──────────────────────
+        const [alreadyProcessed] = await db
+          .select({ id: extractedDocuments.id })
+          .from(extractedDocuments)
+          .where(
+            and(
+              eq(extractedDocuments.userId, target.userId),
+              eq(extractedDocuments.gmailMessageId, msgRef.id)
+            )
+          )
+          .limit(1);
+
+        if (alreadyProcessed) {
+          console.log(`[Webhook] Skipped — already in DB (gmailMessageId=${msgRef.id}). Marking read.`);
+          await gmail.users.messages.modify({
+            userId: "me", id: msgRef.id,
+            requestBody: { removeLabelIds: ["UNREAD"] }
+          }).catch(() => {});
+          continue;
+        }
+
+        // ── Fetch full message ───────────────────────────────────────
         const msgDetails = await gmail.users.messages.get({ userId: "me", id: msgRef.id });
         const labels = msgDetails.data.labelIds || [];
         if (!labels.includes("UNREAD")) {
-          console.log(`[Webhook] Skipped — message ${msgRef.id} was already marked as read.`);
+          console.log(`[Webhook] Skipped — already read: ${msgRef.id}`);
           continue;
         }
 
         const msgPayload = msgDetails.data.payload;
         const subject = msgPayload?.headers?.find(h => h.name?.toLowerCase() === "subject")?.value || "No Subject";
         const snippet = msgDetails.data.snippet || "";
-        const parts = msgPayload?.parts || [];
-        const filenames = parts.filter(p => !!p.filename && p.filename.length > 0).map(p => p.filename!);
 
-        // 6. LLM classification
+        // ── Recursively flatten ALL nested parts (handles forwarded emails) ──
+        const topLevelParts = msgPayload?.parts || [];
+        const allParts = flattenParts(topLevelParts);
+        const filenames = allParts
+          .filter(p => !!p.filename && p.filename.length > 0)
+          .map(p => p.filename!);
+
+        console.log(`[Webhook] Subject: "${subject}" | Attachments found: [${filenames.join(", ") || "none"}]`);
+
+        // ── LLM classification ───────────────────────────────────────
         const isInvoice = await analyzeIsInvoice(subject, snippet, filenames);
+
         if (!isInvoice) {
-          console.log(`[Webhook] Skipped — not an invoice: "${subject}"`);
-          // Even if not an invoice, we mark as read so we don't keep asking the LLM about it
+          console.log(`[Webhook] Not an invoice: "${subject}" — marking read.`);
           await gmail.users.messages.modify({
-            userId: "me", id: msgRef.id, requestBody: { removeLabelIds: ["UNREAD"] }
+            userId: "me", id: msgRef.id,
+            requestBody: { removeLabelIds: ["UNREAD"] }
           }).catch(() => {});
           continue;
         }
 
         console.log(`[Webhook] ✅ Invoice detected: "${subject}"`);
 
-        // 7. Process attachments
-        for (const part of parts) {
-          const filename = part.filename?.toLowerCase() ?? "";
-          const supported = filename.endsWith(".pdf") || filename.endsWith(".png") || filename.endsWith(".jpg") || filename.endsWith(".jpeg");
-          if (!part.body?.attachmentId || !supported) continue;
+        // ── MARK AS READ IMMEDIATELY after classification ─────────────
+        // This is critical — prevents infinite Pub/Sub refire regardless of
+        // whether the attachment processing succeeds or fails downstream.
+        await gmail.users.messages.modify({
+          userId: "me", id: msgRef.id,
+          requestBody: { removeLabelIds: ["UNREAD"] }
+        }).catch(e => console.error("[Webhook] Mark-as-read failed:", e.message));
 
+        // ── Process supported attachments ────────────────────────────
+        const supportedParts = allParts.filter(part => {
+          const fn = (part.filename ?? "").toLowerCase();
+          const supported = fn.endsWith(".pdf") || fn.endsWith(".png") || fn.endsWith(".jpg") || fn.endsWith(".jpeg");
+          return supported && !!part.body?.attachmentId;
+        });
+
+        if (supportedParts.length === 0) {
+          console.log(`[Webhook] ⚠️ Invoice email detected but no supported attachment found (PDF/PNG/JPG) in "${subject}".`);
+          continue;
+        }
+
+        for (const part of supportedParts) {
           const attachment = await gmail.users.messages.attachments.get({
             userId: "me", messageId: msgRef.id, id: part.body.attachmentId,
           });
-          if (!attachment.data.data) continue;
+          if (!attachment.data.data) {
+            console.log(`[Webhook] Empty attachment data for "${part.filename}" — skipping.`);
+            continue;
+          }
 
-          console.log(`[Webhook] 📎 Processing "${part.filename}"...`);
+          console.log(`[Webhook] 📎 Sending "${part.filename}" to FastAPI...`);
           const buffer = Buffer.from(attachment.data.data, "base64");
           const ext = part.filename!.toLowerCase().split(".").pop() ?? "pdf";
-          const mimeTypes: Record<string, string> = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg" };
+          const mimeTypes: Record<string, string> = {
+            pdf: "application/pdf", png: "image/png",
+            jpg: "image/jpeg", jpeg: "image/jpeg",
+          };
 
           const fastApiForm = new FormData();
           fastApiForm.append("file", new File([buffer], part.filename!, { type: mimeTypes[ext] ?? "application/pdf" }));
@@ -134,9 +193,10 @@ export async function POST(req: Request) {
             const d = response.data;
 
             if (d?.invoice_id) {
-              // 8. Save to DB
+              // ── Save to DB with gmailMessageId for future dedup ──
               const [savedDoc] = await db.insert(extractedDocuments).values({
                 userId: target.userId,
+                gmailMessageId: msgRef.id,          // ← dedup key
                 invoiceId: d.invoice_id,
                 vendor: d.vendor,
                 amount: d.amount,
@@ -154,23 +214,18 @@ export async function POST(req: Request) {
                 fileUrl: d.file_url,
               }).returning({ id: extractedDocuments.id });
 
-              if (savedDoc) {
-                // 9. MARK AS READ ONLY ON SUCCESS
-                await gmail.users.messages.modify({
-                  userId: "me",
-                  id: msgRef.id,
-                  requestBody: { removeLabelIds: ["UNREAD"] }
-                }).catch(e => console.error("[Webhook] Final mark-as-read failed:", e.message));
+              console.log(`[Webhook] ✅ Saved to DB: docId=${savedDoc?.id} | msgId=${msgRef.id}`);
+              processedCount++;
 
-                console.log(`[Webhook] ✅ Successfully processed and marked as read: ${msgRef.id}`);
-                processedCount++;
-
-                // Trigger analysis engine (non-blocking)
+              // Trigger analysis (non-blocking)
+              if (savedDoc?.id) {
                 axios.post(`${fastApiUrl}/api/process-invoice-analysis`, { document_id: savedDoc.id }, { timeout: 30000 }).catch(() => {});
               }
+            } else {
+              console.log(`[Webhook] ⚠️ FastAPI returned no invoice_id for "${part.filename}":`, JSON.stringify(d).slice(0, 200));
             }
           } catch (axErr: any) {
-            console.error(`[Webhook] ❌ FastAPI error:`, axErr.response?.data || axErr.message);
+            console.error(`[Webhook] ❌ FastAPI error for "${part.filename}":`, axErr.response?.data || axErr.message);
           }
         }
       } finally {

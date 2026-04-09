@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     let response;
     try {
       response = await axios.post(`${fastApiUrl}/api/process-invoice`, fastApiForm, {
-        timeout: 200000, // 20 second hard timeout
+        timeout: 2000000, // 20 second hard timeout
       });
     } catch (axError: any) {
       // 4. AXIOS ERROR HANDLING
