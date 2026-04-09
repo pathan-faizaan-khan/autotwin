@@ -27,12 +27,12 @@ export async function GET(req: Request) {
     redirectUri
   );
 
-  // Generate a url that asks permissions for Gmail Readonly
+  // Generate a url that asks permissions for Gmail Modify
   // Pass the userId in the state so we can recover it in the callback
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: "offline", // Crucial: gets the refresh_token
     prompt: "consent",      // Crucial: forces google to issue the refresh_token again
-    scope: ["https://www.googleapis.com/auth/gmail.readonly"],
+    scope: ["https://www.googleapis.com/auth/gmail.modify"],
     state: userId,
   });
 
