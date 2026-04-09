@@ -174,7 +174,6 @@ export async function POST(req: Request) {
           // Save to DB with gmailMessageId so duplicate runs skip this email
           const [savedDoc] = await db.insert(extractedDocuments).values({
             userId: target.userId,
-            gmailMessageId: msgRef.id,
             invoiceId: pipelineData.invoice_id,
             vendor: pipelineData.vendor,
             amount: pipelineData.amount,
