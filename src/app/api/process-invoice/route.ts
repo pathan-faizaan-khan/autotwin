@@ -17,6 +17,7 @@ export async function POST(req: Request) {
     fastApiForm.append("file", file);
     
     const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000";
+    const whatsappurl = process.env.NEXT_PUBLIC_WHATSAPP_SERVICE || "http://localhost:8000";
     let response;
     try {
       response = await axios.post(`${fastApiUrl}/api/process-invoice`, fastApiForm, {
@@ -33,9 +34,7 @@ export async function POST(req: Request) {
       const detail = axError.response?.data?.detail || axError.message;
       return NextResponse.json({ error: "Processing service failed", detail }, { status });
     }
-    // ---------------------------------------------------------
-    // 5. VALIDATE RESPONSE PIPELINE
-    // ---------------------------------------------------------
+    
     const pipelineData = response.data;
 
     console.log(pipelineData)
@@ -75,7 +74,7 @@ export async function POST(req: Request) {
       // 🔔 Trigger analysis engine (confidence scoring + WhatsApp notification) — non-fatal
       if (inserted?.id) {
         axios.post(
-          `${fastApiUrl}/process-invoice-analysis`,
+          `${whatsappurl}/process-invoice-analysis`,
           { document_id: inserted.id },
           { timeout: 30000 }
         ).then(r => console.log("[ProcessInvoice] Analysis triggered:", r.data?.decision))

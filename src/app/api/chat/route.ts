@@ -54,17 +54,30 @@ export async function POST(req: Request) {
       const db = getDb();
       if (db && userId) {
         try {
-          const recentDocs = await db.select()
+          const recentDocs = await db.select({
+              id: extractedDocuments.id,
+              vendor: extractedDocuments.vendor,
+              amount: extractedDocuments.amount,
+              decision: extractedDocuments.decision,
+              status: extractedDocuments.status,
+              riskScore: extractedDocuments.riskScore
+            })
             .from(extractedDocuments)
             .where(eq(extractedDocuments.userId, userId))
             .orderBy(desc(extractedDocuments.createdAt))
-            .limit(20);
+            .limit(5);
             
-          const recentInvoices = await db.select()
+          const recentInvoices = await db.select({
+              id: invoices.id,
+              vendor: invoices.vendor,
+              amount: invoices.amount,
+              status: invoices.status,
+              confidence: invoices.confidence
+            })
             .from(invoices)
             .where(eq(invoices.userId, userId))
             .orderBy(desc(invoices.createdAt))
-            .limit(20);
+            .limit(5);
             
           rawData.recentDocs = recentDocs;
           rawData.recentInvoices = recentInvoices;
@@ -93,10 +106,15 @@ IMPORTANT RULES:
 3. Do NOT use markdown formatting like ** or bullet points, because your text is being spoken via Text-to-Speech directly.
 ${langInstruction}`;
 
-      const pastMessages = Array.isArray(messages) ? messages.map((m: any) => ({
+      let pastMessages = Array.isArray(messages) ? messages.map((m: any) => ({
          role: (m.role === 'ai' || m.role === 'assistant' ? 'assistant' : 'user') as "assistant" | "user",
          content: m.text || m.content || ""
       })) : [];
+      
+      // Keep only the last 8 messages to prevent context overflow
+      if (pastMessages.length > 8) {
+        pastMessages = pastMessages.slice(-8);
+      }
 
       console.log("Calling Groq completion...");
       const chatCompletion = await groq.chat.completions.create({

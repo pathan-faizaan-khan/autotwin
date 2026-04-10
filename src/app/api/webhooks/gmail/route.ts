@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { google } from "googleapis";
 import { analyzeIsInvoice } from "@/lib/agents/emailAnalyzer";
 import axios from "axios";
+import { supabase } from "@/lib/supabase";
 
 // In-memory lock prevents two simultaneous notifications processing the same message
 const processingIds = new Set<string>();
@@ -193,11 +194,35 @@ export async function POST(req: Request) {
             pdf: "application/pdf", png: "image/png",
             jpg: "image/jpeg", jpeg: "image/jpeg",
           };
+          const mimeType = mimeTypes[ext] ?? "application/pdf";
+          const fileObj = new File([buffer], part.filename!, { type: mimeType });
+
+          // ── Upload to Supabase Storage ──
+          let publicUrl = "";
+          try {
+            const safeName = part.filename!.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+            const storageFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}_${safeName}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from("chat-attachments")
+              .upload(`invoices/${storageFileName}`, fileObj, { contentType: mimeType });
+              
+            if (uploadError) {
+              console.error(`[Webhook] Supabase upload error:`, uploadError);
+            } else if (uploadData?.path) {
+              const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(uploadData.path);
+              publicUrl = urlData.publicUrl;
+              console.log(`[Webhook] Uploaded to Supabase: ${publicUrl}`);
+            }
+          } catch (storageErr) {
+            console.error(`[Webhook] Error uploading to Supabase:`, storageErr);
+          }
 
           const fastApiForm = new FormData();
-          fastApiForm.append("file", new File([buffer], part.filename!, { type: mimeTypes[ext] ?? "application/pdf" }));
+          fastApiForm.append("file", fileObj);
+          // pass the publicUrl to fastapi if needed, though we will just save it to db directly
 
           const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000";
+          const whatsappurl = process.env.NEXT_PUBLIC_WHATSAPP_SERVICE || "http://localhost:8000";
           try {
             const response = await axios.post(`${fastApiUrl}/api/process-invoice`, fastApiForm, { timeout: 200000 });
             const d = response.data;
@@ -221,7 +246,7 @@ export async function POST(req: Request) {
                 logs: d.logs,
                 riskScore: d.risk_score,
                 processingTimeMs: d.processing_time_ms,
-                fileUrl: d.file_url,
+                fileUrl: publicUrl || d.file_url, // Use our generated url, fallback to fastapi
               }).returning({ id: extractedDocuments.id });
 
               console.log(`[Webhook] ✅ Saved to DB: docId=${savedDoc?.id} | msgId=${msgRef.id}`);
@@ -229,7 +254,8 @@ export async function POST(req: Request) {
 
               // Trigger analysis (non-blocking)
               if (savedDoc?.id) {
-                axios.post(`${fastApiUrl}/api/process-invoice-analysis`, { document_id: savedDoc.id }, { timeout: 30000 }).catch(() => {});
+               const  response =  await axios.post(`${whatsappurl}/api/process-invoice-analysis`, { document_id: savedDoc.id }, { timeout: 30000 }).catch(() => {});
+               console.log("WEBHOOK ANALYSIS", response?.data || "ok");
               }
             } else {
               console.log(`[Webhook] ⚠️ FastAPI returned no invoice_id for "${part.filename}":`, JSON.stringify(d).slice(0, 200));

@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import axios from "axios";
 
-export default function ExceptionsQueuePage() {
+export default function ManualApprovalsPage() {
   const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -23,8 +23,8 @@ export default function ExceptionsQueuePage() {
     <div className="pb-24">
       <div className="mb-16">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-          <h1 className="font-outfit text-5xl font-black text-amber-400 tracking-tighter mb-4">Exceptions Queue</h1>
-          <p className="text-lg text-zinc-500 font-light max-w-xl">Low-confidence extractions flagged by the AI for human resolution.</p>
+          <h1 className="font-outfit text-5xl font-black text-amber-400 tracking-tighter mb-4">Manual Approvals</h1>
+          <p className="text-lg text-zinc-500 font-light max-w-xl">Low-confidence extractions routed by the AI for human resolution.</p>
         </motion.div>
       </div>
 
@@ -51,7 +51,7 @@ export default function ExceptionsQueuePage() {
                 <div className="w-full md:w-1/3 shrink-0 flex flex-col justify-between h-full">
                    <div>
                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-widest mb-6">
-                        <AlertTriangle size={14} /> Critical Flag
+                        <AlertTriangle size={14} /> Review Required
                      </div>
                      <h2 className="text-3xl font-bold text-white mb-2">{app.vendor}</h2>
                      <p className="text-zinc-500 font-medium mb-6">Invoice {app.invoiceNo}</p>

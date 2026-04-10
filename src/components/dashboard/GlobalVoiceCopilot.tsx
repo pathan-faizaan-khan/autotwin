@@ -228,12 +228,12 @@ export default function GlobalVoiceCopilot() {
             </AnimatePresence>
 
             {/* Main Copilot Panel */}
-            <div className="bg-[#030303]/95 backdrop-blur-3xl border border-white/10 rounded-[32px] shadow-2xl relative overflow-hidden">
+            <div className="bg-[#030303]/95 backdrop-blur-3xl border border-white/10 rounded-[32px] shadow-2xl relative">
               {/* Glow */}
               <div className="absolute top-0 right-0 w-full h-[120px] bg-gradient-to-b from-violet-600/15 to-transparent blur-[40px] rounded-t-[32px] pointer-events-none" />
 
               {/* Header */}
-              <div className="flex justify-between items-center px-6 pt-5 pb-3 relative z-10">
+              <div className="flex justify-between items-center px-6 pt-5 pb-3 relative z-30">
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full">
                     {listening
@@ -263,7 +263,7 @@ export default function GlobalVoiceCopilot() {
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: 6, scale: 0.96 }}
                           transition={{ duration: 0.15 }}
-                          className="absolute top-10 left-0 bg-[#0a0a0c] border border-white/10 rounded-2xl overflow-hidden shadow-2xl w-[170px] z-50"
+                          className="absolute top-10 left-0 bg-[#0a0a0c] border border-white/10 rounded-2xl shadow-2xl w-[170px] z-50 max-h-[200px] overflow-y-auto custom-scrollbar"
                         >
                           {LANGUAGES.map(lang => (
                             <button

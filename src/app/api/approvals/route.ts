@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { approvals, extractedDocuments } from "@/lib/schema";
 import { eq, and } from "drizzle-orm";
+import axios from "axios";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -15,27 +16,39 @@ export async function GET(req: Request) {
       ? await db.select().from(approvals).where(eq(approvals.userId, userId))
       : [];
 
-    // Filter AI-flagged OCR docs by userId + human_review decision
+    const { inArray, or } = await import("drizzle-orm");
     const ocrAlerts = userId
       ? await db.select().from(extractedDocuments).where(
-          and(eq(extractedDocuments.userId, userId), eq(extractedDocuments.decision, "human_review"))
+          and(
+            eq(extractedDocuments.userId, userId), 
+            or(
+              inArray(extractedDocuments.decision, ["human_review", "review", "warn"]),
+              inArray(extractedDocuments.status, ["flagged", "needs_review", "pending"])
+            )
+          )
         )
       : [];
 
-    const mappedOcrAlerts = ocrAlerts.map(doc => ({
-      id: doc.id,
-      invoiceId: doc.invoiceId,
-      vendor: doc.vendor,
-      invoiceNo: String(doc.invoiceId).substring(0, 8).toUpperCase(),
-      amount: doc.amount,
-      fileUrl: doc.fileUrl,
-      confidence: doc.confidence,
-      reason: doc.explanation || `Risk Score: ${(doc.riskScore * 100).toFixed(0)}%`,
-      requestedBy: "AutoTwin OCR Engine",
-      status: doc.status === "needs_review" ? "pending" : (doc.status === "approved" || doc.status === "rejected" ? doc.status : "pending"),
-      createdAt: doc.createdAt,
-      notes: ""
-    }));
+    const mappedOcrAlerts = ocrAlerts.map(doc => {
+      // Map to "pending" for the manual approvals page if it hasn't been approved/rejected yet
+      let docStatus = doc.status === "approved" || doc.status === "rejected" ? doc.status : "pending";
+      
+      return {
+        id: doc.id,
+        invoiceId: doc.invoiceId,
+        vendor: doc.vendor,
+        invoiceNo: String(doc.invoiceId).substring(0, 8).toUpperCase(),
+        amount: doc.amount,
+        fileUrl: doc.fileUrl,
+        confidence: doc.confidence,
+        reason: doc.explanation || `Risk Score: ${(doc.riskScore * 100).toFixed(0)}%`,
+        requestedBy: "AutoTwin OCR Engine",
+        decision: doc.decision,
+        status: docStatus,
+        createdAt: doc.createdAt,
+        notes: ""
+      };
+    });
 
     return NextResponse.json({ approvals: [...mappedOcrAlerts, ...data] });
   } catch (err: any) {
@@ -73,6 +86,21 @@ export async function PATCH(req: Request) {
     
     if (!updatedObj) {
         return NextResponse.json({ error: "Record not found" }, { status: 404 });
+    }
+
+    // Forward the approval decision to the core Python AI backend
+    if (body.status === "approved" || body.status === "rejected") {
+      try {
+        const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000";
+        await axios.post(`${fastApiUrl}/api/approve`, {
+          invoice_id: updatedObj.invoiceId || body.id,
+          approved: body.status === "approved",
+          reviewer_notes: body.notes || "From UI Manual Approvals"
+        }, { timeout: 15000 });
+        console.log(`[Approvals] Successfully synced ${body.status} decision with AI Backend.`);
+      } catch (backendErr: any) {
+        console.warn("[Approvals] Sync with Python AI Backend failed (non-fatal):", backendErr.response?.data || backendErr.message);
+      }
     }
 
     return NextResponse.json({ approval: updatedObj });

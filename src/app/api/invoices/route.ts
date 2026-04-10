@@ -35,7 +35,6 @@ export async function GET(req: Request) {
       ? await db.select().from(extractedDocuments).where(eq(extractedDocuments.userId, userId)).orderBy(desc(extractedDocuments.createdAt))
       : [];
 
-    // Map OCR data into the exact format expected by the frontend
     const mappedOcrData = ocrData.map(doc => ({
       id: doc.id,
       userId: doc.userId,
@@ -43,7 +42,8 @@ export async function GET(req: Request) {
       invoiceNo: String(doc.invoiceId).substring(0, 8).toUpperCase(),
       amount: doc.amount,
       currency: "USD",
-      status: doc.decision === "human_review" ? "flagged" : doc.status,
+      status: doc.status,
+      decision: doc.decision,
       confidence: doc.confidence,
       category: "OCR Extracted",
       fileUrl: doc.fileUrl,

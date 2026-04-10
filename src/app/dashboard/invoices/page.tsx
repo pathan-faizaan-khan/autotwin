@@ -19,13 +19,11 @@ const fmt = (n: number) => `₹${n?.toLocaleString("en-IN") ?? "0"}`;
 
 function DecisionBadge({ decision }: { decision: string }) {
   const d = decision?.toLowerCase() ?? "";
-  if (d === "auto" || d === "auto_approve" || d === "approve")
+  if (d === "auto" || d === "auto_approve" || d === "approve" || d === "approved")
     return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-bold uppercase tracking-widest border border-emerald-500/20"><CheckCircle2 size={11} />Auto Approved</span>;
-  if (d === "warn")
+  if (d === "warn" || d === "warning")
     return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 text-amber-400 text-[11px] font-bold uppercase tracking-widest border border-amber-500/20"><AlertCircle size={11} />Warning</span>;
-  if (d === "human_review" || d === "review")
-    return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/15 text-indigo-400 text-[11px] font-bold uppercase tracking-widest border border-indigo-500/20"><AlertTriangle size={11} />Human Review</span>;
-  return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/15 text-red-400 text-[11px] font-bold uppercase tracking-widest border border-red-500/20"><XCircle size={11} />Flagged</span>;
+  return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/15 text-indigo-400 text-[11px] font-bold uppercase tracking-widest border border-indigo-500/20"><AlertTriangle size={11} />Human Review</span>;
 }
 
 function LogLevelBadge({ level }: { level: string }) {
@@ -36,7 +34,7 @@ function LogLevelBadge({ level }: { level: string }) {
   return <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest bg-zinc-800 text-zinc-400">{level}</span>;
 }
 
-const FILTER_TABS = ["All", "Auto", "Warn", "Review", "Flagged"] as const;
+const FILTER_TABS = ["All", "Auto", "Warn", "Review"] as const;
 type FilterTab = typeof FILTER_TABS[number];
 
 // ── Detail Drawer ─────────────────────────────────────────────────────────────
@@ -411,9 +409,8 @@ export default function InvoicesPage() {
       list = list.filter((inv) => {
         const d = (inv.decision ?? inv.status ?? "").toLowerCase();
         if (activeFilter === "Auto") return d === "auto" || d === "auto_approve" || d === "approve" || d === "approved";
-        if (activeFilter === "Warn") return d === "warn";
-        if (activeFilter === "Review") return d === "human_review" || d === "review";
-        if (activeFilter === "Flagged") return d === "reject" || d === "flag" || d === "flagged" || d === "rejected";
+        if (activeFilter === "Warn") return d === "warn" || d === "warning";
+        if (activeFilter === "Review") return d === "human_review" || d === "review" || d === "needs_review" || d === "reject" || d === "flag" || d === "flagged" || d === "rejected";
         return true;
       });
     }
@@ -462,9 +459,8 @@ export default function InvoicesPage() {
     return {
       All: all.length,
       Auto: all.filter((i) => { const d = (i.decision ?? i.status ?? "").toLowerCase(); return d === "auto" || d === "auto_approve" || d === "approve" || d === "approved"; }).length,
-      Warn: all.filter((i) => (i.decision ?? "").toLowerCase() === "warn").length,
-      Review: all.filter((i) => { const d = (i.decision ?? "").toLowerCase(); return d === "human_review" || d === "review"; }).length,
-      Flagged: all.filter((i) => { const d = (i.decision ?? i.status ?? "").toLowerCase(); return d === "reject" || d === "flag" || d === "flagged" || d === "rejected"; }).length,
+      Warn: all.filter((i) => { const d = (i.decision ?? i.status ?? "").toLowerCase(); return d === "warn" || d === "warning"; }).length,
+      Review: all.filter((i) => { const d = (i.decision ?? i.status ?? "").toLowerCase(); return d === "human_review" || d === "review" || d === "needs_review" || d === "reject" || d === "flag" || d === "flagged" || d === "rejected"; }).length,
     };
   }, [invoices]);
 
