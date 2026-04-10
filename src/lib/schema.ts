@@ -137,3 +137,11 @@ export const extractedDocuments = pgTable("extracted_documents", {
   fileUrl: text("file_url"),
   createdAt: timestamp("created_at").defaultNow(),
 });
+// ── User Spreadsheets (Monthly Google Sheets) ──────────────────────────────
+export const userSpreadsheets = pgTable("user_spreadsheets", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull(),
+  spreadsheetId: text("spreadsheet_id").notNull(),
+  month: text("month").notNull(), // e.g. "2024-04"
+  createdAt: timestamp("created_at").defaultNow(),
+});

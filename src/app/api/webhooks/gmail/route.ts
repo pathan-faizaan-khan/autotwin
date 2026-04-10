@@ -6,6 +6,7 @@ import { google } from "googleapis";
 import { analyzeIsInvoice } from "@/lib/agents/emailAnalyzer";
 import axios from "axios";
 import { supabase } from "@/lib/supabase";
+import { appendInvoiceToSheet } from "@/services/googleSheets";
 
 // In-memory lock prevents two simultaneous notifications processing the same message
 const processingIds = new Set<string>();
@@ -254,9 +255,21 @@ export async function POST(req: Request) {
 
               // Trigger analysis (non-blocking)
               if (savedDoc?.id) {
-               const  response =  await axios.post(`${whatsappurl}/api/process-invoice-analysis`, { document_id: savedDoc.id }, { timeout: 30000 }).catch(() => {});
-               console.log("WEBHOOK ANALYSIS", response?.data || "ok");
+                axios.post(`${whatsappurl}/api/process-invoice-analysis`, { document_id: savedDoc.id }, { timeout: 30000 }).catch(() => {});
               }
+
+              // 📊 Sync to Google Sheets (non-blocking)
+              appendInvoiceToSheet(target.userId, {
+                date: d.date || new Date().toISOString().split("T")[0],
+                vendor: d.vendor,
+                invoiceNo: d.invoice_id,
+                amount: d.amount,
+                currency: d.currency || "INR",
+                category: d.category || "General",
+                status: d.status,
+                confidence: d.confidence,
+                fileUrl: publicUrl || d.file_url || ""
+              }).catch(err => console.error("[Webhook] Google Sheets sync failed:", err.message));
             } else {
               console.log(`[Webhook] ⚠️ FastAPI returned no invoice_id for "${part.filename}":`, JSON.stringify(d).slice(0, 200));
             }

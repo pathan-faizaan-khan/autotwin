@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { extractedDocuments } from "@/lib/schema";
 import axios, { AxiosError } from "axios";
+import { appendInvoiceToSheet } from "@/services/googleSheets";
 export async function POST(req: Request) {
   try {
    
@@ -79,6 +80,19 @@ export async function POST(req: Request) {
           { timeout: 30000 }
         ).then(r => console.log("[ProcessInvoice] Analysis triggered:", r.data?.decision))
          .catch(e => console.warn("[ProcessInvoice] Analysis engine (non-fatal):", e.response?.data || e.message));
+
+        // 📊 Sync to Google Sheets (non-blocking)
+        appendInvoiceToSheet(userId, {
+          date: pipelineData.date || new Date().toISOString().split("T")[0],
+          vendor: pipelineData.vendor,
+          invoiceNo: pipelineData.invoice_id,
+          amount: pipelineData.amount,
+          currency: pipelineData.currency || "INR",
+          category: pipelineData.category || "General",
+          status: pipelineData.status,
+          confidence: pipelineData.confidence,
+          fileUrl: fileUrl || pipelineData.file_url || ""
+        }).catch(err => console.error("[ProcessInvoice] Google Sheets sync failed:", err.message));
       }
 
       return NextResponse.json({ success: true, data: inserted });

@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, FileText, MessageSquare,
   BarChart3, Plug, Settings,
-  ChevronRight, ChevronLeft, Hexagon, AlertTriangle, TrendingUp
+  ChevronRight, ChevronLeft, Hexagon, AlertTriangle, TrendingUp, FileSpreadsheet
 } from "lucide-react";
 
 const navItems = [
@@ -17,6 +17,7 @@ const navItems = [
   { label: "Manual Approvals", href: "/dashboard/approvals", icon: AlertTriangle },
   { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
   { label: "AI Chat", href: "/dashboard/chat", icon: MessageSquare },
+  { label: "Financial Sheets", href: "/dashboard/sheets", icon: FileSpreadsheet },
 ];
 
 const secondaryItems = [

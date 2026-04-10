@@ -31,8 +31,12 @@ export async function GET(req: Request) {
   // Pass the userId in the state so we can recover it in the callback
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: "offline", // Crucial: gets the refresh_token
-    prompt: "consent",      // Crucial: forces google to issue the refresh_token again
-    scope: ["https://www.googleapis.com/auth/gmail.modify"],
+    prompt: "consent select_account", // Crucial: forces google to issue the refresh_token again
+    scope: [
+      "https://www.googleapis.com/auth/gmail.modify",
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive.file"
+    ],
     state: userId,
   });
 
