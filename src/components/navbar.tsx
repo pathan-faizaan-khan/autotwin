@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import AutoTwinLogo from "@/components/AutoTwinLogo";
 import Link from "next/link";
 
 const links = [
@@ -41,9 +42,7 @@ export default function Navbar() {
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           {/* Logo */}
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Brain size={16} color="white" />
-            </div>
+            <AutoTwinLogo size={32} />
             <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: "-0.02em" }}>
               <span className="gradient-text">AutoTwin</span>
               <span style={{ color: "#d4d4d8" }}> AI</span>

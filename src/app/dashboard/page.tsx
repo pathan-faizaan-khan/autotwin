@@ -341,6 +341,63 @@ export default function DashboardPage() {
           </div>
         </motion.div>
 
+        {/* Category Allocation */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="p-7 rounded-[28px] bg-white/[0.015] border border-white/[0.05]"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="font-outfit text-xl font-bold text-white">Spend by Category</h2>
+              <p className="text-zinc-500 text-sm">Automated allocation insight</p>
+            </div>
+            <Activity className="text-emerald-400" size={20} />
+          </div>
+          <div className="h-[240px]">
+            {isLoading ? (
+              <div className="h-full rounded-2xl bg-white/[0.02] animate-pulse" />
+            ) : (data?.categories?.length ?? 0) === 0 ? (
+              <div className="h-full flex items-center justify-center text-zinc-600 text-sm">No category data yet</div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={data.categories}
+                    dataKey="spend"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                  >
+                    {data.categories.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={DECISION_COLORS[index % DECISION_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    height={36} 
+                    content={({ payload }) => (
+                      <div className="flex flex-wrap justify-center gap-4 mt-4">
+                        {payload?.map((entry: any, index: number) => (
+                          <div key={`item-${index}`} className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{entry.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </motion.div>
+
         {/* Confidence Histogram */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -398,9 +455,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Table header */}
-        <div className="grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr] px-8 py-3 text-[10px] font-bold uppercase tracking-widest text-zinc-600 border-b border-white/[0.03]">
+        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] px-8 py-3 text-[10px] font-bold uppercase tracking-widest text-zinc-600 border-b border-white/[0.03]">
           <div>Vendor</div>
           <div>Amount</div>
+          <div>Category</div>
           <div>Decision</div>
           <div>Confidence</div>
           <div>Risk Score</div>
@@ -409,7 +467,7 @@ export default function DashboardPage() {
         <div className="flex flex-col">
           {isLoading ? (
             [1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr] px-8 py-4 items-center border-b border-white/[0.02]">
+              <div key={i} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] px-8 py-4 items-center border-b border-white/[0.02]">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-white/[0.04] animate-pulse" />
                   <div className="space-y-1.5">
@@ -417,7 +475,7 @@ export default function DashboardPage() {
                     <div className="w-16 h-2.5 rounded bg-white/[0.03] animate-pulse" />
                   </div>
                 </div>
-                {[1, 2, 3, 4].map((j) => <div key={j} className="w-20 h-3 rounded bg-white/[0.03] animate-pulse" />)}
+                {[1, 2, 3, 4, 5].map((j) => <div key={j} className="w-20 h-3 rounded bg-white/[0.03] animate-pulse" />)}
               </div>
             ))
           ) : (data?.recentDocs?.length ?? 0) === 0 ? (
@@ -436,7 +494,7 @@ export default function DashboardPage() {
                 <Link
                   key={doc.id}
                   href="/dashboard/invoices"
-                  className={`group grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr] px-8 py-4 items-center hover:bg-white/[0.025] transition-colors cursor-pointer ${i !== data.recentDocs.length - 1 ? "border-b border-white/[0.025]" : ""}`}
+                  className={`group grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr] px-8 py-4 items-center hover:bg-white/[0.025] transition-colors cursor-pointer ${i !== data.recentDocs.length - 1 ? "border-b border-white/[0.025]" : ""}`}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center text-zinc-500 group-hover:text-violet-400 group-hover:border-violet-500/20 transition-all shrink-0">
@@ -450,6 +508,11 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <div className="font-outfit text-base font-bold text-white">{fmt(doc.amount)}</div>
+                  <div className="text-xs text-zinc-400 font-medium">
+                    <span className="px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
+                      {doc.category || "General"}
+                    </span>
+                  </div>
                   <div><DecisionBadge decision={doc.decision} /></div>
                   <div className="flex items-center gap-2 max-w-[100px]">
                     <div className="flex-1 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">

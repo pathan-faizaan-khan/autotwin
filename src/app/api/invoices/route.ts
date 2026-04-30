@@ -45,7 +45,7 @@ export async function GET(req: Request) {
       status: doc.status,
       decision: doc.decision,
       confidence: doc.confidence,
-      category: "OCR Extracted",
+      category: doc.category || "General",
       fileUrl: doc.fileUrl,
       createdAt: doc.createdAt
     }));

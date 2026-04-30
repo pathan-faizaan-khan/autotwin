@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Brain, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
+import AutoTwinLogo from "@/components/AutoTwinLogo";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 
@@ -94,9 +95,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <Link href="/" style={{ textDecoration: "none", display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 14, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 32px rgba(124,58,237,0.4)" }}>
-              <Brain size={24} color="white" />
-            </div>
+            <AutoTwinLogo size={48} glow />
             <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: "#fafafa" }}>
               AutoTwin{" "}
               <span style={{ backgroundImage: "linear-gradient(135deg,#a78bfa,#818cf8,#f472b6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>AI</span>

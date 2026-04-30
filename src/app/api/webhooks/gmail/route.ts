@@ -223,7 +223,6 @@ export async function POST(req: Request) {
           // pass the publicUrl to fastapi if needed, though we will just save it to db directly
 
           const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000";
-          const whatsappurl = process.env.NEXT_PUBLIC_WHATSAPP_SERVICE || "http://localhost:8000";
           try {
             const response = await axios.post(`${fastApiUrl}/api/process-invoice`, fastApiForm, { timeout: 200000 });
             const d = response.data;
@@ -246,6 +245,7 @@ export async function POST(req: Request) {
                 confidenceBreakdown: d.confidence_breakdown,
                 logs: d.logs,
                 riskScore: d.risk_score,
+                category: d.category,
                 processingTimeMs: d.processing_time_ms,
                 fileUrl: publicUrl || d.file_url, // Use our generated url, fallback to fastapi
               }).returning({ id: extractedDocuments.id });
@@ -255,7 +255,7 @@ export async function POST(req: Request) {
 
               // Trigger analysis (non-blocking)
               if (savedDoc?.id) {
-                axios.post(`${whatsappurl}/api/process-invoice-analysis`, { document_id: savedDoc.id }, { timeout: 30000 }).catch(() => {});
+                axios.post(`${fastApiUrl}/api/process-invoice-analysis`, { document_id: savedDoc.id }, { timeout: 30000 }).catch(() => {});
               }
 
               // 📊 Sync to Google Sheets (non-blocking)

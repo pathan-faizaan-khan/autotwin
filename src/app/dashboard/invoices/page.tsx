@@ -99,7 +99,11 @@ function DetailDrawer({ invoice, onClose }: { invoice: any; onClose: () => void 
               </div>
               <div>
                 <h2 className="font-outfit text-2xl font-black text-white tracking-tight">{invoice.vendor}</h2>
-                <p className="text-zinc-500 text-sm font-medium">{invoice.invoiceNo ?? (invoice.invoiceId ?? "").substring(0, 8).toUpperCase()}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-zinc-500 text-sm font-medium">{invoice.invoiceNo ?? (invoice.invoiceId ?? "").substring(0, 8).toUpperCase()}</p>
+                  <span className="w-1 h-1 rounded-full bg-zinc-700" />
+                  <span className="px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{invoice.category || "General"}</span>
+                </div>
               </div>
             </div>
             <div className="flex items-center flex-wrap gap-2">
@@ -370,6 +374,7 @@ export default function InvoicesPage() {
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("All");
+  const [groupByCategory, setGroupByCategory] = useState(false);
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["invoices", user?.uid],
@@ -416,6 +421,17 @@ export default function InvoicesPage() {
     }
     return list;
   }, [invoices, searchQuery, activeFilter]);
+
+  const sortedAndGrouped = useMemo(() => {
+    if (!groupByCategory) return { "Docs": filtered };
+    const groups: Record<string, any[]> = {};
+    filtered.forEach(inv => {
+      const cat = inv.category || "General";
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(inv);
+    });
+    return groups;
+  }, [filtered, groupByCategory]);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -555,6 +571,18 @@ export default function InvoicesPage() {
           </div>
         </div>
 
+        {/* Grouping Toggle */}
+        <button
+          onClick={() => setGroupByCategory(!groupByCategory)}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all hide-on-mobile ${
+            groupByCategory 
+              ? "bg-violet-500/10 text-violet-400 border border-violet-500/20 shadow-[0_0_20px_rgba(139,92,246,0.1)]" 
+              : "bg-white/[0.02] text-zinc-500 border border-white/[0.05] hover:bg-white/[0.05]"
+          }`}
+        >
+          {groupByCategory ? "Ungroup List" : "Group by Category"}
+        </button>
+
         <div className="text-zinc-600 text-sm font-medium ml-auto">
           {filtered.length} document{filtered.length !== 1 ? "s" : ""}
         </div>
@@ -563,9 +591,10 @@ export default function InvoicesPage() {
       {/* Table */}
       <div className="rounded-[28px] bg-white/[0.01] border border-white/[0.04] overflow-hidden">
         {/* Table Header */}
-        <div className="grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr_56px] px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-zinc-600 border-b border-white/[0.04] bg-white/[0.01]">
+        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_56px] px-8 py-4 text-[10px] font-bold uppercase tracking-widest text-zinc-600 border-b border-white/[0.04] bg-white/[0.01]">
           <div>Vendor & ID</div>
           <div>Amount</div>
+          <div>Category</div>
           <div>Decision</div>
           <div>Confidence</div>
           <div>Risk Score</div>
@@ -575,16 +604,8 @@ export default function InvoicesPage() {
         <div className="flex flex-col">
           {isLoading ? (
             [1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr_56px] px-8 py-5 items-center border-b border-white/[0.025]">
-                <div className="flex gap-4 items-center">
-                  <div className="w-10 h-10 rounded-xl bg-white/[0.04] animate-pulse" />
-                  <div className="space-y-2">
-                    <div className="w-32 h-3.5 rounded bg-white/[0.04] animate-pulse" />
-                    <div className="w-20 h-2.5 rounded bg-white/[0.03] animate-pulse" />
-                  </div>
-                </div>
-                {[1, 2, 3, 4].map((j) => <div key={j} className="w-16 h-3 rounded bg-white/[0.03] animate-pulse" />)}
-                <div />
+              <div key={i} className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_56px] px-8 py-5 items-center border-b border-white/[0.025]">
+                {/* Skeleton content... */}
               </div>
             ))
           ) : filtered.length === 0 ? (
@@ -598,55 +619,70 @@ export default function InvoicesPage() {
               </p>
             </div>
           ) : (
-            filtered.map((inv: any, i: number) => {
-              const confPct = Math.round(inv.confidence <= 1 ? inv.confidence * 100 : inv.confidence);
-              const riskScore = inv.riskScore ?? 0;
-              return (
-                <motion.div
-                  key={inv.id}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: i * 0.03 }}
-                  onClick={() => openDrawer(inv)}
-                  className={`group grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr_56px] px-8 py-5 items-center hover:bg-white/[0.025] transition-all cursor-pointer ${i !== filtered.length - 1 ? "border-b border-white/[0.025]" : ""}`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center text-zinc-500 group-hover:bg-violet-500/10 group-hover:text-violet-400 group-hover:border-violet-500/20 transition-all shrink-0">
-                      <FileText size={17} />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-white text-sm leading-tight group-hover:text-violet-300 transition-colors">{inv.vendor}</h3>
-                      <p className="text-[11px] text-zinc-600 uppercase tracking-wider mt-0.5">
-                        {inv.invoiceNo ?? (inv.invoiceId ?? "").substring(0, 8).toUpperCase()} · {inv.date ?? new Date(inv.createdAt ?? Date.now()).toLocaleDateString("en-IN")}
-                      </p>
-                    </div>
+            Object.entries(sortedAndGrouped).map(([cat, docs], groupIdx) => (
+              <div key={cat}>
+                {groupByCategory && (
+                  <div className="px-8 py-3 bg-white/[0.015] border-y border-white/[0.02] flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-400/80">{cat}</span>
+                    <span className="text-[10px] text-zinc-600 font-bold">{docs.length} Items</span>
                   </div>
+                )}
+                {docs.map((inv: any, i: number) => {
+                  const confPct = Math.round(inv.confidence <= 1 ? inv.confidence * 100 : inv.confidence);
+                  const riskScore = inv.riskScore ?? 0;
+                  return (
+                    <motion.div
+                      key={inv.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: i * 0.03 }}
+                      onClick={() => openDrawer(inv)}
+                      className={`group grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_56px] px-8 py-5 items-center hover:bg-white/[0.025] transition-all cursor-pointer ${i !== docs.length - 1 ? "border-b border-white/[0.025]" : ""}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-white/[0.03] border border-white/[0.05] flex items-center justify-center text-zinc-500 group-hover:bg-violet-500/10 group-hover:text-violet-400 group-hover:border-violet-500/20 transition-all shrink-0">
+                          <FileText size={17} />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-white text-sm leading-tight group-hover:text-violet-300 transition-colors">{inv.vendor}</h3>
+                          <p className="text-[11px] text-zinc-600 uppercase tracking-wider mt-0.5">
+                            {inv.invoiceNo ?? (inv.invoiceId ?? "").substring(0, 8).toUpperCase()} · {inv.date ?? new Date(inv.createdAt ?? Date.now()).toLocaleDateString("en-IN")}
+                          </p>
+                        </div>
+                      </div>
 
-                  <div className="font-outfit text-base font-bold text-white">{fmt(inv.amount)}</div>
-                  <div><DecisionBadge decision={inv.decision ?? inv.status} /></div>
+                      <div className="font-outfit text-base font-bold text-white">{fmt(inv.amount)}</div>
+                      <div className="text-xs text-zinc-400 font-medium">
+                        <span className="px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.06]">
+                          {inv.category || "General"}
+                        </span>
+                      </div>
+                      <div><DecisionBadge decision={inv.decision ?? inv.status} /></div>
 
-                  <div className="flex items-center gap-2 max-w-[110px]">
-                    <div className="flex-1 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${confPct >= 90 ? "bg-emerald-400" : confPct >= 70 ? "bg-amber-400" : "bg-red-400"}`}
-                        style={{ width: `${confPct}%` }} />
-                    </div>
-                    <span className="text-xs font-bold text-zinc-400 shrink-0 font-outfit">{confPct}%</span>
-                  </div>
+                      <div className="flex items-center gap-2 max-w-[110px]">
+                        <div className="flex-1 h-1.5 bg-white/[0.05] rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${confPct >= 90 ? "bg-emerald-400" : confPct >= 70 ? "bg-amber-400" : "bg-red-400"}`}
+                            style={{ width: `${confPct}%` }} />
+                        </div>
+                        <span className="text-xs font-bold text-zinc-400 shrink-0 font-outfit">{confPct}%</span>
+                      </div>
 
-                  <div>
-                    <span className={`font-outfit text-sm font-bold ${riskScore < 0.3 ? "text-emerald-400" : riskScore < 0.6 ? "text-amber-400" : "text-red-400"}`}>
-                      {riskScore.toFixed(3)}
-                    </span>
-                  </div>
+                      <div>
+                        <span className={`font-outfit text-sm font-bold ${riskScore < 0.3 ? "text-emerald-400" : riskScore < 0.6 ? "text-amber-400" : "text-red-400"}`}>
+                          {riskScore.toFixed(3)}
+                        </span>
+                      </div>
 
-                  <div className="flex items-center justify-end">
-                    <div className="w-8 h-8 rounded-full border border-white/[0.05] flex items-center justify-center text-zinc-600 group-hover:text-violet-400 group-hover:border-violet-500/20 transition-all">
-                      <ChevronRight size={14} />
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })
+                      <div className="flex items-center justify-end">
+                        <div className="w-8 h-8 rounded-full border border-white/[0.05] flex items-center justify-center text-zinc-600 group-hover:text-violet-400 group-hover:border-violet-500/20 transition-all">
+                          <ChevronRight size={14} />
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ))
           )}
         </div>
       </div>

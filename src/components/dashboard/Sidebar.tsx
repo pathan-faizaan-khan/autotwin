@@ -7,8 +7,9 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, FileText, MessageSquare,
   BarChart3, Plug, Settings,
-  ChevronRight, ChevronLeft, Hexagon, AlertTriangle, TrendingUp, FileSpreadsheet
+  ChevronRight, ChevronLeft, AlertTriangle, TrendingUp, FileSpreadsheet
 } from "lucide-react";
+import AutoTwinLogo from "@/components/AutoTwinLogo";
 
 const navItems = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
@@ -82,9 +83,7 @@ export default function Sidebar({ onWidthChange }: { onWidthChange?: (w: number)
       <div className="flex flex-col h-full">
         {/* Brand Area */}
         <div className={`flex items-center gap-3 px-2 mb-12 ${collapsed ? 'justify-center' : ''}`}>
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500/50 flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(139,92,246,0.3)]">
-            <Hexagon size={20} className="text-white fill-white/20" />
-          </div>
+          <AutoTwinLogo size={40} borderRadius={12} glow />
           <AnimatePresence>
             {!collapsed && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col">

@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Brain, Mail, Lock, User, Eye, EyeOff, AlertCircle, Loader2, CheckCircle, Phone } from "lucide-react";
+import { Mail, Lock, User, Eye, EyeOff, AlertCircle, Loader2, CheckCircle } from "lucide-react";
+import PhoneInput from "@/components/PhoneInput";
+import AutoTwinLogo from "@/components/AutoTwinLogo";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 
@@ -108,9 +110,7 @@ export default function RegisterPage() {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <Link href="/" style={{ textDecoration: "none", display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 14, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 8px 32px rgba(124,58,237,0.4)" }}>
-              <Brain size={24} color="white" />
-            </div>
+            <AutoTwinLogo size={48} glow />
             <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: "#fafafa" }}>
               AutoTwin{" "}
               <span style={{ backgroundImage: "linear-gradient(135deg,#a78bfa,#818cf8,#f472b6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>AI</span>
@@ -179,13 +179,11 @@ export default function RegisterPage() {
             {/* WhatsApp */}
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#a1a1aa", marginBottom: 8, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>WhatsApp Number</label>
-              <div style={{ position: "relative" }}>
-                <Phone size={15} color="#52525b" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
-                <input type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="+91 98765 43210 (optional)"
-                  style={inputStyle}
-                  onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
-                  onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.08)")} />
-              </div>
+              <PhoneInput
+                value={whatsapp}
+                onChange={setWhatsapp}
+                placeholder="Phone number (optional)"
+              />
               <p style={{ fontSize: 11, color: "#52525b", marginTop: 4 }}>Used for WhatsApp invoice alerts (optional)</p>
             </div>
 

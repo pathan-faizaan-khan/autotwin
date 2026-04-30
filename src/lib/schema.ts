@@ -133,6 +133,7 @@ export const extractedDocuments = pgTable("extracted_documents", {
   confidenceBreakdown: jsonb("confidence_breakdown"),
   logs: jsonb("logs"),
   riskScore: real("risk_score").notNull(),
+  category: text("category"),
   processingTimeMs: real("processing_time_ms"),
   fileUrl: text("file_url"),
   createdAt: timestamp("created_at").defaultNow(),

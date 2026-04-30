@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain } from "lucide-react";
+import AutoTwinLogo from "@/components/AutoTwinLogo";
 import Link from "next/link";
 
 const W = { maxWidth: 1200, margin: "0 auto", padding: "0 24px" };
@@ -19,9 +19,7 @@ export default function Footer() {
           {/* Brand */}
           <div>
             <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: 10, textDecoration: "none", marginBottom: 16 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg,#7c3aed,#4f46e5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Brain size={14} color="white" />
-              </div>
+              <AutoTwinLogo size={30} />
               <span style={{ fontWeight: 700, fontSize: 15 }}>
                 <span className="gradient-text">AutoTwin</span>
                 <span style={{ color: "#d4d4d8" }}> AI</span>

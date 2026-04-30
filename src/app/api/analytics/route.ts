@@ -56,6 +56,7 @@ export async function GET(req: Request) {
     // Aggregation maps
     const monthlyMap = new Map<string, { actual: number; count: number }>();
     const vendorMap = new Map<string, { spend: number; count: number; avgConfidence: number; totalConf: number }>();
+    const categoryMap = new Map<string, { spend: number; count: number }>();
     const confidenceBuckets = { critical: 0, low: 0, medium: 0, high: 0 };
     const riskBuckets = { low: 0, medium: 0, high: 0 };
 
@@ -88,6 +89,14 @@ export async function GET(req: Request) {
         count: v.count + 1,
         totalConf: v.totalConf + d.confidence,
         avgConfidence: 0, // calculated after
+      });
+
+      // Category aggregates
+      const category = d.category || "General";
+      const cat = categoryMap.get(category) ?? { spend: 0, count: 0 };
+      categoryMap.set(category, {
+        spend: cat.spend + d.amount,
+        count: cat.count + 1,
       });
 
       // Confidence histogram buckets
@@ -139,6 +148,15 @@ export async function GET(req: Request) {
       }))
       .sort((a, b) => b.spend - a.spend)
       .slice(0, 10);
+
+    // ── Format Categories ────────────────────────────────────────────────────
+    const categories = Array.from(categoryMap.entries())
+      .map(([name, v]) => ({
+        name,
+        spend: Math.round(v.spend),
+        count: v.count,
+      }))
+      .sort((a, b) => b.spend - a.spend);
 
     // ── Decision Distribution ────────────────────────────────────────────────
     const decisions = [
@@ -202,6 +220,7 @@ export async function GET(req: Request) {
       confidenceHistogram,
       riskDistribution,
       scatterData,
+      categories,
       recentDocs,
       riskStats: {
         avg: Math.round(avgRiskScore * 100) / 100,

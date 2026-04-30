@@ -18,7 +18,6 @@ export async function POST(req: Request) {
     fastApiForm.append("file", file);
     
     const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000";
-    const whatsappurl = process.env.NEXT_PUBLIC_WHATSAPP_SERVICE || "http://localhost:8000";
     let response;
     try {
       response = await axios.post(`${fastApiUrl}/api/process-invoice`, fastApiForm, {
@@ -68,6 +67,7 @@ export async function POST(req: Request) {
         confidenceBreakdown: pipelineData.confidence_breakdown, // Maps smoothly to jsonb
         logs: pipelineData.logs, // Maps smoothly to jsonb
         riskScore: pipelineData.risk_score,
+        category: pipelineData.category,
         processingTimeMs: pipelineData.processing_time_ms,
         fileUrl: fileUrl || pipelineData.file_url 
       }).returning();
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
       // 🔔 Trigger analysis engine (confidence scoring + WhatsApp notification) — non-fatal
       if (inserted?.id) {
         axios.post(
-          `${whatsappurl}/process-invoice-analysis`,
+          `${fastApiUrl}/api/process-invoice-analysis`,
           { document_id: inserted.id },
           { timeout: 30000 }
         ).then(r => console.log("[ProcessInvoice] Analysis triggered:", r.data?.decision))
