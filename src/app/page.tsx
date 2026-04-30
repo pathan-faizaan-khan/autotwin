@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Navbar from "@/components/navbar";
+import GoogleOneTap from "@/components/GoogleOneTap";
 import HeroSection from "@/components/sections/hero-section";
 import FeaturesSection from "@/components/sections/features-section";
 import HowItWorksSection from "@/components/sections/how-it-works-section";
@@ -75,6 +76,7 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <GoogleOneTap context="signin" />
       <Navbar />
       <HeroSection />
       <FeaturesSection />

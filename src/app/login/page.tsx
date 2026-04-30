@@ -7,6 +7,7 @@ import { Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
 import AutoTwinLogo from "@/components/AutoTwinLogo";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
+import GoogleOneTap from "@/components/GoogleOneTap";
 
 function GoogleIcon() {
   return (
@@ -85,6 +86,7 @@ export default function LoginPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#09090b", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", fontFamily: "Inter, sans-serif" }}>
+      <GoogleOneTap context="signin" />
       {/* Background grid */}
       <div style={{ position: "fixed", inset: 0, backgroundImage: "linear-gradient(rgba(139,92,246,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.04) 1px, transparent 1px)", backgroundSize: "64px 64px", pointerEvents: "none" }} />
       <div style={{ position: "fixed", inset: 0, background: "radial-gradient(ellipse 60% 40% at 50% 0%, rgba(124,58,237,0.1), transparent)", pointerEvents: "none" }} />

@@ -57,6 +57,8 @@ function guessDialCode(countries: Country[]): Country {
   return countries.find((c) => c.code === "IN") || countries[0];
 }
 
+const INDIA_DEFAULT: Country = { name: "India", dialCode: "+91", flag: "🇮🇳", code: "IN" };
+
 export default function PhoneInput({
   value,
   onChange,
@@ -65,7 +67,7 @@ export default function PhoneInput({
   style,
 }: PhoneInputProps) {
   const [countries, setCountries] = useState<Country[]>([]);
-  const [selected, setSelected] = useState<Country | null>(null);
+  const [selected, setSelected] = useState<Country | null>(INDIA_DEFAULT);
   const [localNumber, setLocalNumber] = useState("");
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
