@@ -83,7 +83,7 @@ export default function Sidebar({ onWidthChange }: { onWidthChange?: (w: number)
       <div className="flex flex-col h-full">
         {/* Brand Area */}
         <div className={`flex items-center gap-3 px-2 mb-12 ${collapsed ? 'justify-center' : ''}`}>
-          <AutoTwinLogo size={40} borderRadius={12} glow />
+          <AutoTwinLogo size={40} glow />
           <AnimatePresence>
             {!collapsed && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col">
