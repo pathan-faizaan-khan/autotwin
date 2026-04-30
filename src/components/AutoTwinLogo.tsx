@@ -15,7 +15,8 @@ export default function AutoTwinLogo({ size = 36, className, style, glow }: Auto
       className={className}
       style={{
         display: "block",
-        objectFit: "contain",
+        objectFit: "cover",
+        borderRadius: "50%",
         boxShadow: glow ? "0 6px 32px rgba(124,58,237,0.45)" : undefined,
         ...style,
       }}
