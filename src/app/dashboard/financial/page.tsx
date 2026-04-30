@@ -256,7 +256,7 @@ export default function FinancialPage() {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(value: number) => [fmt(value), "Amount"]}
+                    formatter={(value) => [fmt(Number(value)), "Amount"]}
                     contentStyle={{ background: "#0a0a0a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12 }}
                     labelStyle={{ color: "#a1a1aa" }}
                   />
