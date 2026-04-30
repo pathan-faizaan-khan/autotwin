@@ -16,7 +16,8 @@ export async function POST(req: Request) {
     }
     const fastApiForm = new FormData();
     fastApiForm.append("file", file);
-    
+    fastApiForm.append("user_id", userId);
+
     const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000";
     let response;
     try {
