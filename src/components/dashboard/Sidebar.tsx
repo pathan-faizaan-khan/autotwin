@@ -7,16 +7,17 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, FileText, MessageSquare,
   BarChart3, Plug, Settings,
-  ChevronRight, ChevronLeft, AlertTriangle, TrendingUp, FileSpreadsheet
+  ChevronRight, ChevronLeft, AlertTriangle, ArrowRightLeft, FileSpreadsheet, BookOpen
 } from "lucide-react";
 import AutoTwinLogo from "@/components/AutoTwinLogo";
 
 const navItems = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { label: "Invoices", href: "/dashboard/invoices", icon: FileText },
-  { label: "Transactions", href: "/dashboard/transactions", icon: TrendingUp },
+  { label: "Transactions", href: "/dashboard/transactions", icon: ArrowRightLeft },
   { label: "Manual Approvals", href: "/dashboard/approvals", icon: AlertTriangle },
   { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+  { label: "Financial", href: "/dashboard/financial", icon: BookOpen },
   { label: "AI Chat", href: "/dashboard/chat", icon: MessageSquare },
   { label: "Financial Sheets", href: "/dashboard/sheets", icon: FileSpreadsheet },
 ];

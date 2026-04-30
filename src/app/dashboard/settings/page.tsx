@@ -5,11 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Settings, Shield, Zap, Bell, User, Save, CheckCircle2,
   Loader2, Mail, Smartphone, AlertCircle, LogOut, KeyRound,
-  Database, Brain
+  Database, Brain, MessageSquare, Edit2, X
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import PhoneInput from "@/components/PhoneInput";
 
-type Section = "ai" | "notifications" | "profile" | "security";
+type Section = "ai" | "notifications" | "profile" | "whatsapp" | "security";
 
 interface SettingsState {
   confidenceAutoApprove: number;
@@ -76,6 +77,11 @@ function Slider({
   );
 }
 
+function maskPhone(phone: string) {
+  if (!phone || phone.length < 6) return phone || "Not set";
+  return `${phone.slice(0, 3)} ***** ${phone.slice(-4)}`;
+}
+
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
   const [section, setSection] = useState<Section>("ai");
@@ -85,6 +91,14 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [dirty, setDirty] = useState(false);
   const originalRef = useRef<SettingsState>(DEFAULT);
+
+  // WhatsApp section state
+  const [currentPhone, setCurrentPhone] = useState<string>("");
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [phoneSaved, setPhoneSaved] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const initials = user?.displayName
     ? user.displayName.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)
@@ -114,6 +128,44 @@ export default function SettingsPage() {
   }, [user?.uid]);
 
   useEffect(() => { loadSettings(); }, [loadSettings]);
+
+  // Load user profile to get current WhatsApp number
+  useEffect(() => {
+    if (!user?.uid) return;
+    fetch(`/api/users/profile?firebaseUid=${user.uid}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data?.whatsappNumber) setCurrentPhone(data.whatsappNumber);
+      })
+      .catch(() => {});
+  }, [user?.uid]);
+
+  const handleSavePhone = async () => {
+    if (!user?.uid || !phoneInput) return;
+    setPhoneSaving(true);
+    setPhoneError(null);
+    try {
+      const res = await fetch("/api/users/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firebaseUid: user.uid, whatsappNumber: phoneInput }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPhoneError(data.error || "Failed to save.");
+        return;
+      }
+      setCurrentPhone(phoneInput);
+      setEditingPhone(false);
+      setPhoneInput("");
+      setPhoneSaved(true);
+      setTimeout(() => setPhoneSaved(false), 3000);
+    } catch {
+      setPhoneError("Network error. Please try again.");
+    } finally {
+      setPhoneSaving(false);
+    }
+  };
 
   const update = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => {
     setSettings(prev => {
@@ -147,6 +199,7 @@ export default function SettingsPage() {
     { id: "ai", label: "AI & Autonomy", icon: Brain },
     { id: "notifications", label: "Notifications", icon: Bell },
     { id: "profile", label: "Account Profile", icon: User },
+    { id: "whatsapp", label: "WhatsApp", icon: MessageSquare },
     { id: "security", label: "Security", icon: Shield },
   ];
 
@@ -358,6 +411,95 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── WhatsApp ───────────────────────────────────────────── */}
+          {section === "whatsapp" && (
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+              <div className="p-8 rounded-[28px] bg-white/[0.015] border border-white/[0.05]">
+                <div className="flex items-center gap-3 mb-1">
+                  <MessageSquare size={18} className="text-emerald-400" />
+                  <h2 className="font-outfit text-xl font-bold text-white">WhatsApp Integration</h2>
+                </div>
+                <p className="text-zinc-500 text-sm mb-8">
+                  Your linked WhatsApp number receives invoice processing results and anomaly alerts. Invoices sent from this number are automatically mapped to your account.
+                </p>
+
+                {!editingPhone ? (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${currentPhone ? "bg-emerald-500/10 border-emerald-500/20" : "bg-white/[0.03] border-white/[0.05]"}`}>
+                          <Smartphone size={16} className={currentPhone ? "text-emerald-400" : "text-zinc-500"} />
+                        </div>
+                        <div>
+                          <p className="text-white font-semibold text-sm">Linked Number</p>
+                          <p className="text-zinc-400 text-sm mt-0.5 font-mono">
+                            {currentPhone ? maskPhone(currentPhone) : "No number linked"}
+                          </p>
+                        </div>
+                      </div>
+                      {currentPhone && (
+                        <span className="text-[10px] font-bold px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-widest">Active</span>
+                      )}
+                    </div>
+
+                    {phoneSaved && (
+                      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-2 text-emerald-400 text-sm font-semibold px-1">
+                        <CheckCircle2 size={14} /> Number updated successfully
+                      </motion.div>
+                    )}
+
+                    <button
+                      onClick={() => { setEditingPhone(true); setPhoneInput(currentPhone); setPhoneError(null); }}
+                      className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-zinc-200 text-sm font-semibold hover:bg-white/[0.07] transition-all"
+                    >
+                      <Edit2 size={14} /> {currentPhone ? "Change Number" : "Link WhatsApp Number"}
+                    </button>
+
+                    <div className="p-4 rounded-2xl bg-violet-500/[0.05] border border-violet-500/15">
+                      <p className="text-zinc-500 text-xs leading-relaxed">
+                        <span className="text-violet-400 font-semibold">How it works:</span> Send any invoice image to the AutoTwin WhatsApp bot from this number. The invoice will be processed and appear directly in your dashboard under your account.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    <div>
+                      <label className="block text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-3">New WhatsApp Number</label>
+                      <PhoneInput
+                        value={phoneInput}
+                        onChange={setPhoneInput}
+                        placeholder="Enter your WhatsApp number"
+                      />
+                    </div>
+
+                    {phoneError && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 text-red-400 text-sm px-1">
+                        <AlertCircle size={14} /> {phoneError}
+                      </motion.div>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={handleSavePhone}
+                        disabled={phoneSaving || !phoneInput}
+                        className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-black text-sm font-bold hover:bg-zinc-200 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {phoneSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                        {phoneSaving ? "Saving..." : "Save Number"}
+                      </button>
+                      <button
+                        onClick={() => { setEditingPhone(false); setPhoneInput(""); setPhoneError(null); }}
+                        className="flex items-center gap-2 px-4 py-3 rounded-xl border border-white/[0.08] text-zinc-400 text-sm font-semibold hover:text-zinc-200 hover:bg-white/[0.03] transition-all"
+                      >
+                        <X size={14} /> Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}

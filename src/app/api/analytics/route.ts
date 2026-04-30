@@ -197,9 +197,10 @@ export async function GET(req: Request) {
         const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return tb - ta;
       })
-      .slice(0, 10)
+      .slice(0, 50)
       .map((d) => ({
         id: d.id,
+        invoiceId: d.invoiceId,
         vendor: d.vendor,
         amount: d.amount,
         confidence: d.confidence,
@@ -211,6 +212,22 @@ export async function GET(req: Request) {
         fileUrl: d.fileUrl,
         explanation: d.explanation,
         processingTimeMs: d.processingTimeMs,
+        confidenceBreakdown: d.confidenceBreakdown,
+        logs: d.logs,
+        category: d.category,
+        anomaly: d.anomaly,
+        // Rich extraction fields
+        invoiceNo: d.invoiceNo,
+        dueDate: d.dueDate,
+        paymentTerms: d.paymentTerms,
+        subtotal: d.subtotal,
+        gstRate: d.gstRate,
+        gstAmount: d.gstAmount,
+        lineItems: d.lineItems,
+        sellerGstin: d.sellerGstin,
+        buyerGstin: d.buyerGstin,
+        buyerCompany: d.buyerCompany,
+        notes: d.notes,
       }));
 
     return NextResponse.json({

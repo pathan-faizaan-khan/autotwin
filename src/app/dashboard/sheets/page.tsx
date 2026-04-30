@@ -3,11 +3,12 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { FileSpreadsheet, Loader2, ExternalLink, Calendar, Search } from "lucide-react";
+import { FileSpreadsheet, Loader2, ExternalLink, Calendar, Search, BookOpen, Receipt } from "lucide-react";
 
 interface SheetRecord {
   spreadsheetId: string;
   month: string;
+  type?: string;
   createdAt: string;
 }
 
@@ -114,24 +115,38 @@ export default function SheetsDashboard() {
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/10 blur-[60px] rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity" />
               
               <div className="relative z-10">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-6 border border-emerald-500/20 group-hover:scale-110 transition-transform">
-                  <FileSpreadsheet size={28} className="text-emerald-400" />
-                </div>
-                
+                {(() => {
+                  const typeConfig: Record<string, { icon: any; color: string; label: string; bg: string }> = {
+                    balance_sheet: { icon: BookOpen, color: "text-violet-400", label: "Balance Sheet", bg: "bg-violet-500/10 border-violet-500/20" },
+                    income_statement: { icon: Receipt, color: "text-amber-400", label: "Income Statement", bg: "bg-amber-500/10 border-amber-500/20" },
+                    ledger: { icon: FileSpreadsheet, color: "text-emerald-400", label: "Monthly Ledger", bg: "bg-emerald-500/10 border-emerald-500/20" },
+                  };
+                  const t = typeConfig[sheet.type || "ledger"] || typeConfig["ledger"];
+                  const Icon = t.icon;
+                  return (
+                    <>
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 border ${t.bg} group-hover:scale-110 transition-transform`}>
+                        <Icon size={28} className={t.color} />
+                      </div>
+                      <span className={`inline-block text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full mb-3 ${t.bg} ${t.color}`}>{t.label}</span>
+                    </>
+                  );
+                })()}
+
                 <h3 className="text-xl font-bold text-white mb-2">{formatMonth(sheet.month)}</h3>
-                
+
                 <div className="flex items-center gap-2 text-zinc-500 text-sm mb-8">
                   <Calendar size={14} />
-                  <span>Created on {new Date(sheet.createdAt).toLocaleDateString()}</span>
+                  <span>Created {new Date(sheet.createdAt).toLocaleDateString()}</span>
                 </div>
-                
+
                 <a
                   href={`https://docs.google.com/spreadsheets/d/${sheet.spreadsheetId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-white text-black font-bold hover:bg-zinc-200 transition-all group-hover:shadow-[0_0_20px_rgba(255,255,255,0.1)]"
                 >
-                  <ExternalLink size={16} /> Open Ledger
+                  <ExternalLink size={16} /> Open in Sheets
                 </a>
               </div>
             </motion.div>

@@ -119,7 +119,7 @@ export const userSettings = pgTable("user_settings", {
 export const extractedDocuments = pgTable("extracted_documents", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: text("user_id").notNull(),
-  gmailMessageId: text("gmail_message_id"),              // dedup key — prevents reprocessing on server restart
+  gmailMessageId: text("gmail_message_id"),
   invoiceId: text("invoice_id").notNull(),
   vendor: text("vendor").notNull(),
   amount: real("amount").notNull(),
@@ -136,6 +136,18 @@ export const extractedDocuments = pgTable("extracted_documents", {
   category: text("category"),
   processingTimeMs: real("processing_time_ms"),
   fileUrl: text("file_url"),
+  // Rich extraction fields (added via alter_extracted_documents.py migration)
+  invoiceNo: text("invoice_no"),
+  dueDate: text("due_date"),
+  paymentTerms: text("payment_terms"),
+  subtotal: real("subtotal"),
+  gstRate: real("gst_rate"),
+  gstAmount: real("gst_amount"),
+  lineItems: jsonb("line_items"),
+  sellerGstin: text("seller_gstin"),
+  buyerGstin: text("buyer_gstin"),
+  buyerCompany: text("buyer_company"),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 // ── User Spreadsheets (Monthly Google Sheets) ──────────────────────────────
@@ -144,5 +156,6 @@ export const userSpreadsheets = pgTable("user_spreadsheets", {
   userId: text("user_id").notNull(),
   spreadsheetId: text("spreadsheet_id").notNull(),
   month: text("month").notNull(), // e.g. "2024-04"
+  type: text("type").default("ledger"), // ledger | balance_sheet | income_statement
   createdAt: timestamp("created_at").defaultNow(),
 });

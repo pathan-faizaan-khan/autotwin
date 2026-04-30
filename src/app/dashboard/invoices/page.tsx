@@ -6,7 +6,7 @@ import {
   Search, Filter, Plus, FileText, ArrowUpRight, Loader2,
   X, CheckCircle2, AlertCircle, AlertTriangle, XCircle,
   Clock, Zap, Shield, Brain, BarChart3, ChevronRight,
-  ShieldCheck, TrendingUp, ExternalLink
+  ShieldCheck, TrendingUp, ExternalLink, Receipt, Hash, Calendar, CreditCard, Building2, Tag
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
@@ -172,6 +172,118 @@ function DetailDrawer({ invoice, onClose }: { invoice: any; onClose: () => void 
           {/* ── Overview Tab ─────────────────────────────────────────── */}
           {activeTab === "overview" && (
             <div className="px-8 py-6 space-y-6">
+
+              {/* Invoice Details */}
+              {(invoice.invoiceNo || invoice.dueDate || invoice.paymentTerms || invoice.sellerGstin || invoice.buyerGstin || invoice.gstAmount != null || invoice.subtotal != null) && (
+                <div className="rounded-2xl bg-white/[0.02] border border-white/[0.04] overflow-hidden">
+                  <div className="px-4 py-3 border-b border-white/[0.04]">
+                    <p className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                      <Receipt size={11} /> Invoice Details
+                    </p>
+                  </div>
+                  <div className="divide-y divide-white/[0.03]">
+                    {invoice.invoiceNo && (
+                      <div className="grid grid-cols-2 px-4 py-2.5 text-sm">
+                        <span className="text-zinc-500 flex items-center gap-1.5"><Hash size={11} /> Invoice No</span>
+                        <span className="text-zinc-200 font-mono font-medium text-right">{invoice.invoiceNo}</span>
+                      </div>
+                    )}
+                    {invoice.dueDate && (
+                      <div className="grid grid-cols-2 px-4 py-2.5 text-sm">
+                        <span className="text-zinc-500 flex items-center gap-1.5"><Calendar size={11} /> Due Date</span>
+                        <span className="text-zinc-200 text-right">{invoice.dueDate}</span>
+                      </div>
+                    )}
+                    {invoice.paymentTerms && (
+                      <div className="grid grid-cols-2 px-4 py-2.5 text-sm">
+                        <span className="text-zinc-500 flex items-center gap-1.5"><CreditCard size={11} /> Payment Terms</span>
+                        <span className="text-zinc-200 text-right">{invoice.paymentTerms}</span>
+                      </div>
+                    )}
+                    {invoice.sellerGstin && (
+                      <div className="grid grid-cols-2 px-4 py-2.5 text-sm">
+                        <span className="text-zinc-500 flex items-center gap-1.5"><Building2 size={11} /> Seller GSTIN</span>
+                        <span className="text-zinc-200 font-mono text-right text-xs">{invoice.sellerGstin}</span>
+                      </div>
+                    )}
+                    {invoice.buyerGstin && (
+                      <div className="grid grid-cols-2 px-4 py-2.5 text-sm">
+                        <span className="text-zinc-500 flex items-center gap-1.5"><Tag size={11} /> Buyer GSTIN</span>
+                        <span className="text-zinc-200 font-mono text-right text-xs">{invoice.buyerGstin}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* GST Breakdown */}
+                  {(invoice.subtotal != null || invoice.gstAmount != null) && (
+                    <div className="border-t border-white/[0.04] px-4 py-3">
+                      <p className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest mb-2">GST Breakdown</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {invoice.subtotal != null && (
+                          <div className="bg-white/[0.02] rounded-xl p-2.5 text-center">
+                            <p className="text-zinc-600 text-[9px] uppercase tracking-widest mb-1">Subtotal</p>
+                            <p className="text-zinc-200 font-bold text-sm">₹{invoice.subtotal.toLocaleString("en-IN")}</p>
+                          </div>
+                        )}
+                        {invoice.gstRate != null && (
+                          <div className="bg-white/[0.02] rounded-xl p-2.5 text-center">
+                            <p className="text-zinc-600 text-[9px] uppercase tracking-widest mb-1">GST Rate</p>
+                            <p className="text-amber-400 font-bold text-sm">{invoice.gstRate}%</p>
+                          </div>
+                        )}
+                        {invoice.gstAmount != null && (
+                          <div className="bg-white/[0.02] rounded-xl p-2.5 text-center">
+                            <p className="text-zinc-600 text-[9px] uppercase tracking-widest mb-1">GST Amount</p>
+                            <p className="text-violet-400 font-bold text-sm">₹{invoice.gstAmount.toLocaleString("en-IN")}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Line Items */}
+              {invoice.lineItems && Array.isArray(invoice.lineItems) && invoice.lineItems.length > 0 && (
+                <div className="rounded-2xl bg-white/[0.02] border border-white/[0.04] overflow-hidden">
+                  <div className="px-4 py-3 border-b border-white/[0.04]">
+                    <p className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                      <BarChart3 size={11} /> Line Items
+                    </p>
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-white/[0.04]">
+                        <th className="text-left px-4 py-2 text-zinc-600 font-semibold uppercase tracking-wider">Description</th>
+                        <th className="text-right px-3 py-2 text-zinc-600 font-semibold uppercase tracking-wider">Qty</th>
+                        <th className="text-right px-3 py-2 text-zinc-600 font-semibold uppercase tracking-wider">Unit Price</th>
+                        <th className="text-right px-4 py-2 text-zinc-600 font-semibold uppercase tracking-wider">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(invoice.lineItems as any[]).map((item: any, idx: number) => (
+                        <tr key={idx} className="border-b border-white/[0.02] hover:bg-white/[0.01] transition-colors">
+                          <td className="px-4 py-2.5 text-zinc-300">{item.description || "—"}</td>
+                          <td className="px-3 py-2.5 text-zinc-400 text-right">{item.quantity ?? "—"}</td>
+                          <td className="px-3 py-2.5 text-zinc-400 text-right">{item.unit_price != null ? `₹${item.unit_price.toLocaleString("en-IN")}` : "—"}</td>
+                          <td className="px-4 py-2.5 text-zinc-200 font-semibold text-right">{item.amount != null ? `₹${item.amount.toLocaleString("en-IN")}` : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Notes */}
+              {invoice.notes && (
+                <div className="p-4 rounded-2xl bg-amber-500/[0.04] border border-amber-500/10">
+                  <p className="text-amber-400 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                    <FileText size={11} /> Notes
+                  </p>
+                  <p className="text-zinc-400 text-sm leading-relaxed">{invoice.notes}</p>
+                </div>
+              )}
+
               {/* AI Explanation */}
               <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
                 <p className="text-zinc-600 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-1.5">
@@ -395,10 +507,12 @@ export default function InvoicesPage() {
     staleTime: 60_000,
   });
 
-  // Build a map from id → full OCR doc for enrichment
+  // Build a map from invoiceId → full OCR doc for enrichment
   const docsMap = useMemo(() => {
     const m = new Map<string, any>();
-    rawDocs.forEach((d: any) => m.set(d.id, d));
+    rawDocs.forEach((d: any) => {
+      if (d.invoiceId) m.set(d.invoiceId, d);
+    });
     return m;
   }, [rawDocs]);
 
