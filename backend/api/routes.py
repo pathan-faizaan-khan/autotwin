@@ -114,11 +114,12 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()) -> Dict[str, s
     "/process-invoice",
     response_model=ProcessInvoiceResponse,
     tags=["Invoice"],
-    summary="Process an invoice — file upload or JSON body",
+    summary="Process an invoice — file upload, file_url, or JSON body",
 )
 async def process_invoice(
     request: Request,
     file: Optional[UploadFile] = File(default=None),
+    file_url: Optional[str] = Form(default=None),  # N8N passes Supabase public URL
     vendor: Optional[str] = Form(default=None),
     amount: Optional[float] = Form(default=None),
     date: Optional[str] = Form(default=None),
@@ -127,7 +128,11 @@ async def process_invoice(
     _user: Optional[Dict[str, Any]] = Depends(_optional_auth),
 ) -> ProcessInvoiceResponse:
     """
-    Accepts **multipart/form-data** (file) *or* **application/json** *or* form fields.
+    Accepts **multipart/form-data** (file or file_url) *or* **application/json** *or* form fields.
+
+    N8N shape::
+
+        user_id=<uid>&file_url=<supabase-public-url>
 
     JSON body shape::
 
@@ -137,27 +142,39 @@ async def process_invoice(
     file_content: Optional[str] = None
     file_bytes: Optional[bytes] = None
     json_data: Optional[Dict[str, Any]] = None
+    storage_url: Optional[str] = file_url  # reuse N8N-supplied URL, no re-upload needed
 
     content_type = request.headers.get("content-type", "")
 
     user_id = user_id or (_user.get("username") if _user else None) or "demo_user"
-    file_url: Optional[str] = None
 
     if file is not None:
         raw_bytes = await file.read()
         file_bytes = raw_bytes
         logger.info("[Routes] /process-invoice | mode=file filename=%s", file.filename)
-        # Upload to Supabase Storage (non-blocking — failure won't abort processing)
+        if not storage_url:
+            try:
+                storage_url = await upload_invoice_file(
+                    invoice_id=invoice_id,
+                    filename=file.filename or f"{invoice_id}.bin",
+                    file_bytes=raw_bytes,
+                )
+                if storage_url:
+                    logger.info("[Routes] File stored in Supabase Storage: %s", storage_url)
+            except Exception as _upload_exc:  # noqa: BLE001
+                logger.warning("[Routes] Storage upload failed (non-fatal): %s", _upload_exc)
+
+    elif file_url:
+        # N8N sends a Supabase public URL — download the file for OCR processing
+        logger.info("[Routes] /process-invoice | mode=file_url url=%s", file_url)
         try:
-            file_url = await upload_invoice_file(
-                invoice_id=invoice_id,
-                filename=file.filename or f"{invoice_id}.bin",
-                file_bytes=raw_bytes,
-            )
-            if file_url:
-                logger.info("[Routes] File stored in Supabase Storage: %s", file_url)
-        except Exception as _upload_exc:  # noqa: BLE001
-            logger.warning("[Routes] Storage upload failed (non-fatal): %s", _upload_exc)
+            import httpx
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.get(file_url)
+                resp.raise_for_status()
+                file_bytes = resp.content
+        except Exception as dl_exc:
+            raise HTTPException(status_code=400, detail=f"Failed to download file from URL: {dl_exc}")
 
     elif "application/json" in content_type:
         try:
@@ -179,7 +196,7 @@ async def process_invoice(
     else:
         raise HTTPException(
             status_code=422,
-            detail="Supply a file, JSON body, or form fields (vendor/amount/date).",
+            detail="Supply a file, file_url, JSON body, or form fields (vendor/amount/date).",
         )
 
     result: ProcessInvoiceResponse = await _orchestrator.process_invoice(
@@ -190,9 +207,9 @@ async def process_invoice(
         user_id=user_id,
     )
 
-    # Attach Storage URL to the saved invoice if a file was uploaded
-    if file_url:
-        await update_invoice(invoice_id, {"file_url": file_url}, user_id=user_id)
+    # Attach Storage URL to the saved invoice record
+    if storage_url:
+        await update_invoice(invoice_id, {"file_url": storage_url}, user_id=user_id)
 
     await _broadcast_logs(invoice_id, result.logs)
     logger.info(

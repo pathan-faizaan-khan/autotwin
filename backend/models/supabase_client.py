@@ -110,13 +110,8 @@ async def upload_invoice_file(
         )
         logger.info("File uploaded: %s/%s", bucket, object_path)
 
-        # Generate a signed URL valid for 1 hour (3600 seconds)
-        signed = _supabase_client.storage.from_(bucket).create_signed_url(
-            path=object_path,
-            expires_in=3600,
-        )
-        url: Optional[str] = signed.get("signedURL") or signed.get("signedUrl")
-        logger.debug("Signed URL generated for %s: %s", object_path, url)
+        url: str = _supabase_client.storage.from_(bucket).get_public_url(object_path)
+        logger.debug("Public URL for %s: %s", object_path, url)
         return url
     except Exception as exc:  # noqa: BLE001
         logger.warning("File upload failed for %s: %s", object_path, exc)
@@ -127,29 +122,15 @@ async def upload_invoice_file(
 # Signed URL for existing file
 # ──────────────────────────────────────────────────────────────
 
-def get_invoice_file_url(invoice_id: str, filename: str, expires_in: int = 3600) -> Optional[str]:
-    """
-    Return a fresh signed URL for an already-uploaded file.
-
-    Args:
-        invoice_id:  Invoice ID (used as folder prefix).
-        filename:    Original filename.
-        expires_in:  Seconds until expiry (default 1 hour).
-
-    Returns:
-        Signed URL string, or None if unavailable.
-    """
+def get_invoice_file_url(invoice_id: str, filename: str) -> Optional[str]:
+    """Return a permanent public URL for an already-uploaded file."""
     if not _storage_available or _supabase_client is None:
         return None
 
     bucket = settings.SUPABASE_STORAGE_BUCKET
     object_path = f"{invoice_id}/{filename}"
     try:
-        signed = _supabase_client.storage.from_(bucket).create_signed_url(
-            path=object_path,
-            expires_in=expires_in,
-        )
-        return signed.get("signedURL") or signed.get("signedUrl")
+        return _supabase_client.storage.from_(bucket).get_public_url(object_path)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Could not generate signed URL for %s: %s", object_path, exc)
+        logger.warning("Could not get public URL for %s: %s", object_path, exc)
         return None

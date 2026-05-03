@@ -46,23 +46,12 @@ async def verify_webhook(
 # ──────────────────────────────────────────────────────────────
 
 @router.post("/webhook/whatsapp")
-async def receive_webhook(request: Request):
+async def receive_webhook(_request: Request):
     """
-    Receives incoming messages from WhatsApp Cloud API.
-    Responds with 200 immediately; all processing is fire-and-forget.
+    WhatsApp webhook is now owned by N8N (Workflow 2).
+    This endpoint is kept alive only so Meta's webhook registration does not break.
+    All processing is handled by N8N — this just acknowledges receipt.
     """
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
-
-    entries = body.get("entry", [])
-    for entry in entries:
-        for change in entry.get("changes", []):
-            value = change.get("value", {})
-            for msg in value.get("messages", []):
-                asyncio.create_task(_dispatch_message(msg))
-
     return Response(content="EVENT_RECEIVED", status_code=200)
 
 
