@@ -555,9 +555,9 @@ export default function InvoicesPage() {
       setLoadingStep("Uploading document to secure vault...");
       const fileExt = file.name.split(".").pop();
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const { data, error } = await supabase.storage.from("chat-attachments").upload(`invoices/${fileName}`, file);
+      const { data, error } = await supabase.storage.from("invoices").upload(`uploads/${fileName}`, file);
       if (error) throw error;
-      const { data: { publicUrl } } = supabase.storage.from("chat-attachments").getPublicUrl(data.path);
+      const { data: { publicUrl } } = supabase.storage.from("invoices").getPublicUrl(data.path);
       setLoadingStep("Initializing VisionAgent extraction...");
       const formData = new FormData();
       formData.append("file", file);

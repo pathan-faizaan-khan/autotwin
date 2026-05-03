@@ -44,3 +44,6 @@ next-env.d.ts
 .open-next/
 .wrangler/
 .dev.vars
+
+# N8N workflow files contain hardcoded credentials — keep local only
+n8n-workflows/

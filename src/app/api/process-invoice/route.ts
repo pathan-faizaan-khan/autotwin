@@ -1,109 +1,63 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
-import { extractedDocuments } from "@/lib/schema";
-import axios, { AxiosError } from "axios";
-import { appendInvoiceToSheet } from "@/services/googleSheets";
+import { supabase } from "@/lib/supabase";
+
+const N8N_URL = process.env.N8N_WEBHOOK_URL || "https://n8n-production-4cae.up.railway.app";
+const N8N_SECRET = process.env.WEBHOOK_SECRET || "";
+
 export async function POST(req: Request) {
   try {
-   
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const userId = formData.get("userId") as string | null;
-    const fileUrl = formData.get("fileUrl") as string | null;
-    if (!userId || !file) {
-      console.error("[Next.js] Missing requirements:", { hasUserId: !!userId, hasFile: !!file });
-      return NextResponse.json({ error: "Missing userId or file in request" }, { status: 400 });
-    }
-    const fastApiForm = new FormData();
-    fastApiForm.append("file", file);
-    fastApiForm.append("user_id", userId);
+    let fileUrl = formData.get("fileUrl") as string | null;
+    const fileName = file?.name || (formData.get("fileName") as string) || "document";
+    const mimeType = file?.type || "application/pdf";
 
-    const fastApiUrl = process.env.NEXT_PUBLIC_FASTAPI_URL || "http://localhost:8000";
-    let response;
-    try {
-      response = await axios.post(`${fastApiUrl}/api/process-invoice`, fastApiForm, {
-        timeout: 2000000, // 20 second hard timeout
-      });
-    } catch (axError: any) {
-      // 4. AXIOS ERROR HANDLING
-      if (axError.code === "ECONNABORTED") {
-        console.error("[Next.js] FastAPI Timeout Error (504)");
-        return NextResponse.json({ error: "Upstream pipeline service timed out" }, { status: 504 });
+    if (!userId) {
+      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    }
+
+    // Upload to Supabase if no public URL was provided by the frontend
+    if (!fileUrl && file) {
+      const safeName = fileName.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+      const storageKey = `website/${userId}/${Date.now()}_${safeName}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("invoices")
+        .upload(storageKey, file, { contentType: mimeType });
+
+      if (uploadError) {
+        console.error("[process-invoice] Supabase upload:", uploadError.message);
+        return NextResponse.json({ error: "File upload failed", detail: uploadError.message }, { status: 500 });
       }
-      
-      const status = axError.response?.status || 500;
-      const detail = axError.response?.data?.detail || axError.message;
-      return NextResponse.json({ error: "Processing service failed", detail }, { status });
+      const { data: urlData } = supabase.storage.from("invoices").getPublicUrl(uploadData.path);
+      fileUrl = urlData.publicUrl;
     }
-    
-    const pipelineData = response.data;
 
-    console.log(pipelineData)
-    
-    if (!pipelineData || !pipelineData.invoice_id || !pipelineData.logs) {
-      console.error("[Next.js] Invalid FastAPI payload:", pipelineData);
-      return NextResponse.json({ error: "Invalid response from AI Pipeline" }, { status: 502 });
+    if (!fileUrl) {
+      return NextResponse.json({ error: "Missing file or fileUrl" }, { status: 400 });
     }
-    // ---------------------------------------------------------
-    // 6. SAFE DATABASE INSERT
-    // ---------------------------------------------------------
-    const drizzleDb = getDb();
-    if (!drizzleDb) {
-      throw new Error("Database instance not available");
+
+    // Hand off to N8N OCR pipeline — handles OCR, DB insert, RAG indexing, analysis, Sheets sync
+    const n8nRes = await fetch(`${N8N_URL}/webhook/autotwin/ocr`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-autotwin-secret": N8N_SECRET },
+      body: JSON.stringify({ fileUrl, userId, fileName, source: "website", mimeType }),
+      signal: AbortSignal.timeout(120000),
+    });
+
+    if (!n8nRes.ok) {
+      const detail = await n8nRes.text().catch(() => n8nRes.statusText);
+      console.error("[process-invoice] N8N error:", n8nRes.status, detail);
+      return NextResponse.json({ error: "Processing pipeline failed", detail }, { status: 502 });
     }
-    // Wrap in try/catch to log schema/insertion mismatches safely
-    try {
-      const [inserted] = await drizzleDb.insert(extractedDocuments).values({
-        userId: userId, // Safe types
-        invoiceId: pipelineData.invoice_id,
-        vendor: pipelineData.vendor,
-        amount: pipelineData.amount,
-        date: pipelineData.date,
-        anomaly: pipelineData.anomaly,
-        confidence: pipelineData.confidence, // DO NOT MODIFY (e.g. no * 100)
-        status: pipelineData.status,
-        decision: pipelineData.decision,
-        explanation: pipelineData.explanation,
-        anomalyDetails: pipelineData.anomaly_details, // Maps smoothly to jsonb
-        confidenceBreakdown: pipelineData.confidence_breakdown, // Maps smoothly to jsonb
-        logs: pipelineData.logs, // Maps smoothly to jsonb
-        riskScore: pipelineData.risk_score,
-        category: pipelineData.category,
-        processingTimeMs: pipelineData.processing_time_ms,
-        fileUrl: fileUrl || pipelineData.file_url 
-      }).returning();
 
-      // 🔔 Trigger analysis engine (confidence scoring + WhatsApp notification) — non-fatal
-      if (inserted?.id) {
-        axios.post(
-          `${fastApiUrl}/api/process-invoice-analysis`,
-          { document_id: inserted.id },
-          { timeout: 30000 }
-        ).then(r => console.log("[ProcessInvoice] Analysis triggered:", r.data?.decision))
-         .catch(e => console.warn("[ProcessInvoice] Analysis engine (non-fatal):", e.response?.data || e.message));
-
-        // 📊 Sync to Google Sheets (non-blocking)
-        appendInvoiceToSheet(userId, {
-          date: pipelineData.date || new Date().toISOString().split("T")[0],
-          vendor: pipelineData.vendor,
-          invoiceNo: pipelineData.invoice_id,
-          amount: pipelineData.amount,
-          currency: pipelineData.currency || "INR",
-          category: pipelineData.category || "General",
-          status: pipelineData.status,
-          confidence: pipelineData.confidence,
-          fileUrl: fileUrl || pipelineData.file_url || ""
-        }).catch(err => console.error("[ProcessInvoice] Google Sheets sync failed:", err.message));
-      }
-
-      return NextResponse.json({ success: true, data: inserted });
-    } catch (dbError: any) {
-      console.error("[Next.js] Supabase Insertion Error:", dbError.message);
-      return NextResponse.json({ error: "Database mapping error after processing" }, { status: 500 });
+    const result = await n8nRes.json();
+    return NextResponse.json({ success: true, data: result });
+  } catch (err: any) {
+    if (err.name === "TimeoutError" || err.name === "AbortError") {
+      return NextResponse.json({ error: "Pipeline timed out — the document is still being processed" }, { status: 504 });
     }
-  } catch (globalError: any) {
-    // Ensure all blindspots and unhandled rejections hit a strict 500
-    console.error("[Next.js] Unhandled API Route Exception:", globalError.message || globalError);
+    console.error("[process-invoice]", err.message);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
