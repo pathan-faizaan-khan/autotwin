@@ -27,7 +27,18 @@ export async function POST(req: Request) {
 
     if (!n8nRes.ok) throw new Error(`N8N responded ${n8nRes.status}`);
 
-    const result = await n8nRes.json();
+    const text = await n8nRes.text();
+    if (!text || !text.trim()) {
+      throw new Error("N8N returned empty body — Workflow 4 may not be activated in N8N");
+    }
+
+    let result: any;
+    try {
+      result = JSON.parse(text);
+    } catch {
+      throw new Error(`N8N returned non-JSON: ${text.slice(0, 120)}`);
+    }
+
     return NextResponse.json({
       reply: result.response || FALLBACK_RESPONSE,
       language: result.language,
