@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis } from "recharts";
 
@@ -552,17 +551,10 @@ export default function InvoicesPage() {
     if (!file || !user?.uid) return;
     try {
       setIsProcessing(true);
-      setLoadingStep("Uploading document to secure vault...");
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const { data, error } = await supabase.storage.from("invoices").upload(`uploads/${fileName}`, file);
-      if (error) throw error;
-      const { data: { publicUrl } } = supabase.storage.from("invoices").getPublicUrl(data.path);
       setLoadingStep("Initializing VisionAgent extraction...");
       const formData = new FormData();
       formData.append("file", file);
       formData.append("userId", user.uid);
-      formData.append("fileUrl", publicUrl);
       await axios.post("/api/process-invoice", formData, { headers: { "Content-Type": "multipart/form-data" } });
       setLoadingStep("Syncing Financial Memory Graph...");
       await Promise.all([

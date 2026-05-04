@@ -10,7 +10,6 @@ import remarkGfm from "remark-gfm";
 import { useAuth } from "@/context/AuthContext";
 import { realtimedb } from "@/lib/firebase";
 import { ref, onValue, push, set } from "firebase/database";
-import { supabase } from "@/lib/supabase";
 import imageCompression from "browser-image-compression";
 
 type Message = {
@@ -81,9 +80,8 @@ export default function ChatPage() {
   const uploadToSupabase = async (file: File) => {
     try {
       setUploading(true);
-      let fileToUpload = file;
+      let fileToUpload: File = file;
 
-      // Compress Images
       if (file.type.startsWith("image/")) {
         fileToUpload = await imageCompression(file, {
           maxSizeMB: 0.5,
@@ -92,17 +90,18 @@ export default function ChatPage() {
         });
       }
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      
-      const { data, error } = await supabase.storage
-        .from('chat-attachments')
-        .upload(`${user?.uid}/${fileName}`, fileToUpload);
+      const form = new FormData();
+      form.append("file", fileToUpload, file.name);
+      form.append("bucket", "chat-attachments");
+      form.append("userId", user?.uid || "");
 
-      if (error) throw error;
-
-      const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(data.path);
-      return { url: publicUrl, type: file.type.startsWith("image/") ? "image" as const : "file" as const, name: file.name };
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(err.error);
+      }
+      const { url, name } = await res.json();
+      return { url, type: file.type.startsWith("image/") ? "image" as const : "file" as const, name };
     } catch (err: any) {
       setErrorMsg("File upload failed: " + err.message);
       return null;
