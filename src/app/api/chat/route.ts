@@ -46,7 +46,7 @@ export async function POST(req: Request) {
       ragDocCount: result.ragDocCount,
     });
   } catch (err: any) {
-    console.error("[chat]", err.message);
+    console.error("[chat]", err.message, err.cause ? `| cause: ${err.cause}` : "");
     return NextResponse.json({ reply: FALLBACK_RESPONSE });
   }
 }
