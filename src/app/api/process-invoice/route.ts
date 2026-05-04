@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 
 const N8N_URL = process.env.N8N_WEBHOOK_URL || "https://n8n-production-4cae.up.railway.app";
 const N8N_SECRET = process.env.WEBHOOK_SECRET || "";
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     if (!fileUrl && file) {
       const safeName = fileName.replace(/[^a-zA-Z0-9.\-_]/g, "_");
       const storageKey = `website/${userId}/${Date.now()}_${safeName}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
         .from("invoices")
         .upload(storageKey, file, { contentType: mimeType });
 
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
         console.error("[process-invoice] Supabase upload:", uploadError.message);
         return NextResponse.json({ error: "File upload failed", detail: uploadError.message }, { status: 500 });
       }
-      const { data: urlData } = supabase.storage.from("invoices").getPublicUrl(uploadData.path);
+      const { data: urlData } = supabaseAdmin.storage.from("invoices").getPublicUrl(uploadData.path);
       fileUrl = urlData.publicUrl;
     }
 
