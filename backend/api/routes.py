@@ -449,8 +449,14 @@ async def get_invoice_logs(
 # ══════════════════════════════════════════════════════════════
 
 from pydantic import BaseModel
+from typing import Optional as _Opt
+
 class AnalysisRequest(BaseModel):
-    document_id: str
+    document_id: _Opt[str] = None
+    invoice_id: _Opt[str] = None  # N8N sends invoice_id; accept both
+
+    def resolved_id(self) -> str:
+        return self.document_id or self.invoice_id or ""
 
 @router.post(
     "/process-invoice-analysis",
@@ -459,12 +465,15 @@ class AnalysisRequest(BaseModel):
 )
 async def analyze_invoice_endpoint(payload: AnalysisRequest) -> Dict[str, Any]:
     """
-    Receives document_id, fetches extracted invoice data, computes confidence score,
-    makes decision (auto approve/needs review), saves results, and sends WhatsApp notification.
+    Receives document_id (or invoice_id alias), fetches extracted invoice data, computes
+    confidence score, makes decision, saves results, and sends WhatsApp notification.
     """
+    doc_id = payload.resolved_id()
+    if not doc_id:
+        raise HTTPException(status_code=422, detail="document_id or invoice_id is required")
     try:
         from services.analysis_engine import process_invoice_analysis
-        result = await process_invoice_analysis(payload.document_id)
+        result = await process_invoice_analysis(doc_id)
         return result
     except Exception as e:
         logger.error(f"[Routes] Analysis engine failed for document_id {payload.document_id}: {e}")
