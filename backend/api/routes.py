@@ -472,11 +472,11 @@ async def analyze_invoice_endpoint(payload: AnalysisRequest) -> Dict[str, Any]:
     if not doc_id:
         raise HTTPException(status_code=422, detail="document_id or invoice_id is required")
     try:
-        from services.analysis_engine import process_invoice_analysis
-        result = await process_invoice_analysis(doc_id)
+        from services.analysis_engine import process_invoice_analysis_by_invoice_id
+        result = await process_invoice_analysis_by_invoice_id(doc_id)
         return result
     except Exception as e:
-        logger.error(f"[Routes] Analysis engine failed for document_id {payload.document_id}: {e}")
+        logger.error(f"[Routes] Analysis engine failed for document_id {doc_id}: {e}")
         return {
             "status": "error",
             "message": str(e),
