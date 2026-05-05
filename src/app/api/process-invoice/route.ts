@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-const N8N_URL = process.env.N8N_WEBHOOK_URL || "https://n8n-production-4cae.up.railway.app";
+const N8N_URL = process.env.N8N_WEBHOOK_URL || "https://n8n-production-2f47.up.railway.app";
 const N8N_SECRET = process.env.WEBHOOK_SECRET || "";
 
 export async function POST(req: Request) {
