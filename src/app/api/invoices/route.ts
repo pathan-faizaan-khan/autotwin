@@ -3,6 +3,25 @@ import { getDb } from "@/lib/db";
 import { invoices, extractedDocuments, users } from "@/lib/schema";
 import { desc, eq, or } from "drizzle-orm";
 
+// Returns all storage variants of a WhatsApp phone number so we can match
+// regardless of whether the N8N pipeline stored it with or without country code.
+// e.g. "917207210372" → ["917207210372", "7207210372"]
+//      "7207210372"   → ["7207210372", "917207210372"]
+function phoneVariants(phone: string): string[] {
+  const digits = phone.replace(/\D/g, "");
+  const variants = new Set<string>();
+  variants.add(digits);
+  // Strip leading 91 (India) if present and number is long enough
+  if (digits.startsWith("91") && digits.length > 10) {
+    variants.add(digits.slice(2));
+  }
+  // Add 91 prefix if not already present
+  if (!digits.startsWith("91")) {
+    variants.add("91" + digits);
+  }
+  return [...variants];
+}
+
 const MOCK_INVOICES = [
   { id: "inv-001", userId: "demo", vendor: "Amazon Web Services", invoiceNo: "INV-2026-0041", amount: 289500, currency: "INR", status: "approved", confidence: 96, category: "Cloud", fileUrl: null, createdAt: "2026-04-05T10:00:00Z" },
   { id: "inv-002", userId: "demo", vendor: "Stripe Payments", invoiceNo: "INV-2026-0042", amount: 125000, currency: "INR", status: "pending", confidence: 82, category: "Payments", fileUrl: null, createdAt: "2026-04-04T09:00:00Z" },
@@ -42,11 +61,12 @@ export async function GET(req: Request) {
       : [];
 
     // Filter OCR extractions by Firebase UID; if user has a WhatsApp number also
-    // include docs where user_id matches the phone (WhatsApp-sourced uploads).
+    // include docs where user_id matches any phone variant (with/without country code).
+    const phoneConditions = whatsappNumber
+      ? phoneVariants(whatsappNumber).map(v => eq(extractedDocuments.userId, v))
+      : [];
     const ocrWhere = userId
-      ? (whatsappNumber
-          ? or(eq(extractedDocuments.userId, userId), eq(extractedDocuments.userId, whatsappNumber))
-          : eq(extractedDocuments.userId, userId))
+      ? or(eq(extractedDocuments.userId, userId), ...phoneConditions)
       : null;
 
     const ocrData = ocrWhere
