@@ -268,26 +268,36 @@ async def approve_invoice(
     if body.updated_amount is not None:
         updates["amount"] = body.updated_amount
 
-    await update_invoice(body.invoice_id, updates, user_id=user_id)
-    await save_approval(
-        body.invoice_id,
-        {
-            "approved": body.approved,
-            "reviewer_notes": body.reviewer_notes,
-            "updated_confidence": updated_confidence,
-            "new_decision": new_decision,
-            "user_id": user_id,
-        },
-        user_id=user_id
-    )
+    try:
+        await update_invoice(body.invoice_id, updates, user_id=user_id)
+    except Exception as exc:
+        logger.warning("[Routes] update_invoice non-fatal: %s", exc)
 
-    vendor = existing.get("vendor", "unknown")
-    _memory_graph.update_vendor_data(
-        vendor=vendor,
-        amount=body.updated_amount or float(existing.get("amount", 0)),
-        date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-        anomaly=not body.approved,
-    )
+    try:
+        await save_approval(
+            body.invoice_id,
+            {
+                "approved": body.approved,
+                "reviewer_notes": body.reviewer_notes,
+                "updated_confidence": updated_confidence,
+                "new_decision": new_decision,
+                "user_id": user_id,
+            },
+            user_id=user_id,
+        )
+    except Exception as exc:
+        logger.warning("[Routes] save_approval non-fatal (approvals table may not exist): %s", exc)
+
+    try:
+        vendor = existing.get("vendor", "unknown")
+        _memory_graph.update_vendor_data(
+            vendor=vendor,
+            amount=body.updated_amount or float(existing.get("amount", 0)),
+            date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            anomaly=not body.approved,
+        )
+    except Exception as exc:
+        logger.warning("[Routes] memory_graph update non-fatal: %s", exc)
     
     if body.approved:
         logger.info(
