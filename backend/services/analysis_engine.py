@@ -24,7 +24,6 @@ from models.database import (
     analysis_get_document_by_invoice_id,
     analysis_get_purchase_order,
     analysis_get_vendor_invoices,
-    analysis_get_user_phone,
     analysis_check_duplicate_invoice,
     analysis_save_results,
 )
@@ -211,7 +210,6 @@ async def process_invoice_analysis(document_id: str) -> Dict[str, Any]:
     # Step 3: Fetch related data
     po_record      = await analysis_get_purchase_order(po_number) if po_number else None
     vendor_invoices = await analysis_get_vendor_invoices(vendor, user_id)
-    user_phone     = await analysis_get_user_phone(user_id)
 
     logger.info("🧠 Running validation engine...")
 
@@ -268,45 +266,9 @@ async def process_invoice_analysis(document_id: str) -> Dict[str, Any]:
     }
     await analysis_save_results(result)
 
-    # Step 7: WhatsApp notification
-    wa_msg = await generate_whatsapp_message(
-        flags=flags,
-        amount=amount,
-        avg=avg_past,
-        confidence=score,
-        status=status,
-        doc=doc,
-    )
-
-    final_phone = user_phone or getattr(settings, "WHATSAPP_DEFAULT_NUMBER", "")
-
-    if final_phone:
-        await send_whatsapp_notification(final_phone, wa_msg)
-
-        # For review-required invoices, follow up with interactive Approve/Reject buttons
-        if status == "needs_review":
-            try:
-                from services.whatsapp_client import send_interactive_buttons
-                vendor_name = doc.get("vendor", "Unknown Vendor")
-                await send_interactive_buttons(
-                    to_phone=final_phone,
-                    header="Action Required",
-                    body=(
-                        f"Vendor: {vendor_name}\n"
-                        f"Amount: ₹{amount:,.2f}\n"
-                        f"Confidence: {score}%\n\n"
-                        "Please review this invoice and take action."
-                    ),
-                    footer=f"Invoice ID: {(invoice_id or document_id)[:8]}…",
-                    buttons=[
-                        {"id": f"approve:{invoice_id or document_id}", "title": "Approve"},
-                        {"id": f"reject:{invoice_id or document_id}", "title": "Reject"},
-                    ],
-                )
-            except Exception as btn_exc:
-                logger.warning(f"Could not send approval buttons (non-fatal): {btn_exc}")
-    else:
-        logger.warning(f"⚠️ No phone number resolved for user {user_id}. WhatsApp notification skipped.")
+    # WhatsApp is handled exclusively by the N8N pipeline (WA nodes before this endpoint
+    # is called). Sending here would cause every user to receive the message twice.
+    logger.info(f"✅ Analysis complete for {document_id} — WA handled by N8N.")
 
     return result
 

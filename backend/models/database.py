@@ -195,7 +195,17 @@ async def save_invoice(data: dict, user_id: str = "demo_user") -> str:
                             :seller_gstin, :buyer_gstin, :buyer_company, :notes,
                             now()
                         )
-                        ON CONFLICT DO NOTHING
+                        ON CONFLICT (invoice_id) DO UPDATE SET
+                            confidence      = EXCLUDED.confidence,
+                            status          = EXCLUDED.status,
+                            decision        = EXCLUDED.decision,
+                            risk_score      = EXCLUDED.risk_score,
+                            anomaly         = EXCLUDED.anomaly,
+                            explanation     = EXCLUDED.explanation,
+                            anomaly_details = EXCLUDED.anomaly_details,
+                            confidence_breakdown = EXCLUDED.confidence_breakdown,
+                            logs            = EXCLUDED.logs,
+                            file_url        = COALESCE(EXCLUDED.file_url, extracted_documents.file_url)
                         """),
                         {
                             "user_id": uid,
