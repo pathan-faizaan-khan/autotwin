@@ -41,16 +41,27 @@ export async function GET(req: Request) {
       vendor: doc.vendor,
       invoiceNo: String(doc.invoiceId).substring(0, 8).toUpperCase(),
       amount: doc.amount,
-      currency: "USD",
+      currency: "INR",
       status: doc.status,
       decision: doc.decision,
       confidence: doc.confidence,
+      riskScore: doc.riskScore ?? 0,
       category: doc.category || "General",
       fileUrl: doc.fileUrl,
       createdAt: doc.createdAt
     }));
 
-    return NextResponse.json({ invoices: [...mappedOcrData, ...data] });
+    // extracted_documents is the authoritative source for the N8N pipeline.
+    // Merging with the invoices table produces duplicates because save_invoice()
+    // writes to both. Return only extractedDocuments; fall back to invoices table
+    // rows that have no corresponding OCR document (legacy records).
+    const ocrIds = new Set(ocrData.map(d => d.id));
+    const legacyInvoices = data.filter(inv => !ocrIds.has(inv.id)).map(inv => ({
+      ...inv,
+      riskScore: 0,
+    }));
+
+    return NextResponse.json({ invoices: [...mappedOcrData, ...legacyInvoices] });
   } catch (err: any) {
     console.error(err);
     return NextResponse.json({ invoices: [] });
