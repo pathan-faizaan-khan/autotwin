@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { invoices, extractedDocuments } from "@/lib/schema";
-import { desc, eq } from "drizzle-orm";
+import { invoices, extractedDocuments, users } from "@/lib/schema";
+import { desc, eq, or } from "drizzle-orm";
 
 const MOCK_INVOICES = [
   { id: "inv-001", userId: "demo", vendor: "Amazon Web Services", invoiceNo: "INV-2026-0041", amount: 289500, currency: "INR", status: "approved", confidence: 96, category: "Cloud", fileUrl: null, createdAt: "2026-04-05T10:00:00Z" },
@@ -25,14 +25,32 @@ export async function GET(req: Request) {
   const db = getDb();
   if (!db) return NextResponse.json({ invoices: [] });
   try {
+    // Look up the user's WhatsApp number so WhatsApp-submitted invoices are included.
+    // WhatsApp invoices are stored with user_id = sender's phone number (not Firebase UID)
+    // because the N8N pipeline falls back to the phone when no user record is found.
+    const userProfile = userId
+      ? await db.select({ whatsappNumber: users.whatsappNumber })
+          .from(users)
+          .where(eq(users.firebaseUid, userId))
+          .limit(1)
+      : [];
+    const whatsappNumber = userProfile[0]?.whatsappNumber ?? null;
+
     // Filter invoices by userId
     const data = userId
       ? await db.select().from(invoices).where(eq(invoices.userId, userId)).orderBy(desc(invoices.createdAt))
       : [];
 
-    // Filter OCR extractions by userId
-    const ocrData = userId
-      ? await db.select().from(extractedDocuments).where(eq(extractedDocuments.userId, userId)).orderBy(desc(extractedDocuments.createdAt))
+    // Filter OCR extractions by Firebase UID; if user has a WhatsApp number also
+    // include docs where user_id matches the phone (WhatsApp-sourced uploads).
+    const ocrWhere = userId
+      ? (whatsappNumber
+          ? or(eq(extractedDocuments.userId, userId), eq(extractedDocuments.userId, whatsappNumber))
+          : eq(extractedDocuments.userId, userId))
+      : null;
+
+    const ocrData = ocrWhere
+      ? await db.select().from(extractedDocuments).where(ocrWhere).orderBy(desc(extractedDocuments.createdAt))
       : [];
 
     const mappedOcrData = ocrData.map(doc => ({
