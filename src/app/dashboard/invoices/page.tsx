@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, Filter, Plus, FileText, ArrowUpRight, Loader2,
@@ -11,6 +11,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/context/ToastContext";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis } from "recharts";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -479,21 +480,40 @@ function DetailDrawer({ invoice, onClose }: { invoice: any; onClose: () => void 
 export default function InvoicesPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { toast, dismiss } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [loadingStep, setLoadingStep] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("All");
   const [groupByCategory, setGroupByCategory] = useState(false);
+  const [refetchMs, setRefetchMs] = useState(30_000);
+  const prevCountRef = useRef(0);
+  const isWatchingRef = useRef(false);
+  const watchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: invoices = [], isLoading } = useQuery({
     queryKey: ["invoices", user?.uid],
     queryFn: async () => (await axios.get(`/api/invoices?userId=${user?.uid ?? ""}`)).data.invoices ?? [],
     enabled: !!user?.uid,
-    refetchInterval: 30000,
+    refetchInterval: refetchMs,
     refetchOnWindowFocus: false,
   });
+
+  // Watch for new invoice appearing after fire-and-forget upload
+  useEffect(() => {
+    if (!isWatchingRef.current) return;
+    if ((invoices as any[]).length > prevCountRef.current) {
+      isWatchingRef.current = false;
+      setRefetchMs(30_000);
+      if (watchTimeoutRef.current) clearTimeout(watchTimeoutRef.current);
+      toast("Analysis complete!", "success", "Your invoice has been processed. Click any row to review the AI report.");
+      queryClient.invalidateQueries({ queryKey: ["analytics"] });
+    }
+  }, [(invoices as any[]).length]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => () => { if (watchTimeoutRef.current) clearTimeout(watchTimeoutRef.current); }, []);
 
   // Rich data: merge OCR fields if available
   const { data: rawDocs = [] } = useQuery({
@@ -549,23 +569,42 @@ export default function InvoicesPage() {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user?.uid) return;
+
+    prevCountRef.current = (invoices as any[]).length;
+    const toastId = toast("Uploading invoice...", "loading");
+    setIsProcessing(true);
+
     try {
-      setIsProcessing(true);
-      setLoadingStep("Initializing VisionAgent extraction...");
       const formData = new FormData();
       formData.append("file", file);
       formData.append("userId", user.uid);
       await axios.post("/api/process-invoice", formData, { headers: { "Content-Type": "multipart/form-data" } });
-      setLoadingStep("Syncing Financial Memory Graph...");
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["invoices"] }),
-        queryClient.invalidateQueries({ queryKey: ["analytics"] }),
-      ]);
+
+      dismiss(toastId);
+      toast(
+        "Invoice queued for AI analysis",
+        "success",
+        "Analysis takes ~30-60 s. You'll get a notification when it's ready.",
+        6000
+      );
+
+      // Switch to fast polling so the "Analysis complete" toast fires promptly
+      isWatchingRef.current = true;
+      setRefetchMs(5_000);
+      watchTimeoutRef.current = setTimeout(() => {
+        // Give up fast-polling after 3 min; don't leave it spinning forever
+        if (isWatchingRef.current) {
+          isWatchingRef.current = false;
+          setRefetchMs(30_000);
+        }
+      }, 3 * 60 * 1000);
+
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
     } catch (err: any) {
-      alert("Pipeline Error: " + err.message);
+      dismiss(toastId);
+      toast("Upload failed", "error", err.response?.data?.error || err.message);
     } finally {
       setIsProcessing(false);
-      setLoadingStep("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -588,24 +627,6 @@ export default function InvoicesPage() {
 
   return (
     <div className="pb-24 relative">
-      {/* Processing Overlay */}
-      <AnimatePresence>
-        {isProcessing && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center">
-            <div className="bg-[#060608] border border-white/[0.07] p-10 rounded-[40px] max-w-sm w-full text-center flex flex-col items-center shadow-2xl">
-              <div className="w-16 h-16 rounded-full bg-violet-600/20 border border-violet-500/20 flex items-center justify-center mb-6 text-violet-400">
-                <Loader2 size={32} className="animate-spin" />
-              </div>
-              <h3 className="text-xl font-black text-white mb-2 font-outfit">Neural Pipeline Active</h3>
-              <p className="text-sm text-zinc-400 font-medium">{loadingStep}</p>
-              <div className="mt-6 w-full h-1 bg-white/[0.04] rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 animate-pulse rounded-full w-3/4" />
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Detail Drawer */}
       <AnimatePresence>
         {selectedInvoice && (
@@ -625,11 +646,13 @@ export default function InvoicesPage() {
         <div className="flex items-center gap-3">
           <input type="file" ref={fileInputRef} onChange={handleUpload} className="hidden" accept="image/*,.pdf" />
           <motion.button
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => !isProcessing && fileInputRef.current?.click()}
             initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
-            className="h-11 px-5 rounded-full bg-white text-black text-sm font-bold flex items-center gap-2 hover:bg-zinc-200 transition-colors"
+            disabled={isProcessing}
+            className="h-11 px-5 rounded-full bg-white text-black text-sm font-bold flex items-center gap-2 hover:bg-zinc-200 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
           >
-            <Plus size={16} /> Upload Document
+            {isProcessing ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+            {isProcessing ? "Uploading…" : "Upload Document"}
           </motion.button>
         </div>
       </div>

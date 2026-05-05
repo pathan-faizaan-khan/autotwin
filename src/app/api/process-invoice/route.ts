@@ -37,26 +37,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing file or fileUrl" }, { status: 400 });
     }
 
-    // Hand off to N8N OCR pipeline — handles OCR, DB insert, RAG indexing, analysis, Sheets sync
-    const n8nRes = await fetch(`${N8N_URL}/webhook/autotwin/ocr`, {
+    // Fire-and-forget: trigger N8N pipeline without waiting for it to complete.
+    // This prevents users from seeing a timeout and retrying, which caused double uploads.
+    fetch(`${N8N_URL}/webhook/autotwin/ocr`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-autotwin-secret": N8N_SECRET },
       body: JSON.stringify({ fileUrl, userId, fileName, source: "website", mimeType }),
-      signal: AbortSignal.timeout(120000),
+      signal: AbortSignal.timeout(10000), // only wait long enough to confirm N8N accepted it
+    }).catch((err) => {
+      // Log but do not surface — the file is already uploaded; N8N will process it
+      console.error("[process-invoice] N8N trigger failed (non-fatal):", err.message);
     });
 
-    if (!n8nRes.ok) {
-      const detail = await n8nRes.text().catch(() => n8nRes.statusText);
-      console.error("[process-invoice] N8N error:", n8nRes.status, detail);
-      return NextResponse.json({ error: "Processing pipeline failed", detail }, { status: 502 });
-    }
-
-    const result = await n8nRes.json();
-    return NextResponse.json({ success: true, data: result });
+    return NextResponse.json({ success: true, message: "Invoice received and queued for processing." });
   } catch (err: any) {
-    if (err.name === "TimeoutError" || err.name === "AbortError") {
-      return NextResponse.json({ error: "Pipeline timed out — the document is still being processed" }, { status: 504 });
-    }
     console.error("[process-invoice]", err.message);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
