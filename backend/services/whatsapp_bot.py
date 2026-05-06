@@ -318,13 +318,49 @@ Rules:
 - Match the user's language."""
 
 
-async def generate_ai_response(data: dict, user_message: str) -> str:
+async def fetch_rag_context(user_message: str, user_id: str, limit: int = 5) -> str:
+    """Embed the user query via Gemini and retrieve semantically similar documents."""
+    if not settings.GEMINI_API_KEY or not user_id:
+        return ""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            emb_res = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={settings.GEMINI_API_KEY}",
+                json={"content": {"parts": [{"text": user_message}]}, "taskType": "RETRIEVAL_QUERY", "outputDimensionality": 768},
+            )
+            emb_res.raise_for_status()
+            query_vector = emb_res.json()["embedding"]["values"]
+
+        supabase = get_supabase_client()
+        results = supabase.rpc("search_rag_documents_vector", {
+            "p_user_id": user_id,
+            "p_query_embedding": query_vector,
+            "p_limit": limit,
+            "p_threshold": 0.35,
+        }).execute()
+
+        if not results.data:
+            return ""
+
+        snippets = [r["content"] for r in results.data if r.get("content")]
+        return "\n\n---\n\n".join(snippets[:limit])
+    except Exception as e:
+        logger.warning(f"[RAG] fetch_rag_context failed: {e}")
+        return ""
+
+
+async def generate_ai_response(data: dict, user_message: str, rag_context: str = "") -> str:
     if not settings.GROQ_API_KEY:
         return f"AI engine unavailable. Raw data:\n{json.dumps(data, indent=2)}"
 
+    rag_section = (
+        f"\n\nRelevant transaction history from the user's documents:\n{rag_context}"
+        if rag_context else ""
+    )
     prompt = (
         f'User asked: "{user_message}"\n\n'
-        f"Business data (use ONLY this):\n{json.dumps(data, indent=2)}\n\n"
+        f"Business data (use ONLY this):\n{json.dumps(data, indent=2)}"
+        f"{rag_section}\n\n"
         "Respond helpfully and concisely based on the data above."
     )
 
@@ -559,5 +595,8 @@ async def handle_incoming_message(sender_phone: str, text: str) -> None:
     }
     data = await fetchers.get(intent, fetch_invoice_summary)()
 
-    response = await generate_ai_response(data, text)
+    user_id = await get_user_id_by_phone(sender_phone)
+    rag_context = await fetch_rag_context(text, user_id) if user_id else ""
+
+    response = await generate_ai_response(data, text, rag_context)
     await send_whatsapp_message(sender_phone, response)
