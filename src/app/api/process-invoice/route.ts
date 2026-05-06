@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-autotwin-secret": N8N_SECRET },
       body: JSON.stringify({ fileUrl, userId, fileName, source: "website", mimeType }),
-      signal: AbortSignal.timeout(10000), // only wait long enough to confirm N8N accepted it
+      signal: AbortSignal.timeout(35000), // 35s — covers Railway cold-start (~30s wake time)
     }).catch((err) => {
       // Log but do not surface — the file is already uploaded; N8N will process it
       console.error("[process-invoice] N8N trigger failed (non-fatal):", err.message);
