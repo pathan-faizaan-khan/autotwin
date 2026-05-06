@@ -571,38 +571,36 @@ export default function InvoicesPage() {
     if (!file || !user?.uid) return;
 
     prevCountRef.current = (invoices as any[]).length;
-    const toastId = toast("Uploading invoice...", "loading");
+    const toastId = toast("Extracting text from document...", "loading");
     setIsProcessing(true);
 
     try {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("userId", user.uid);
-      await axios.post("/api/process-invoice", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data: result } = await axios.post("/api/process-invoice", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 65000,
+      });
 
       dismiss(toastId);
-      toast(
-        "Invoice queued for AI analysis",
-        "success",
-        "Analysis takes ~30-60 s. You'll get a notification when it's ready.",
-        6000
-      );
 
-      // Switch to fast polling so the "Analysis complete" toast fires promptly
-      isWatchingRef.current = true;
-      setRefetchMs(5_000);
-      watchTimeoutRef.current = setTimeout(() => {
-        // Give up fast-polling after 3 min; don't leave it spinning forever
-        if (isWatchingRef.current) {
-          isWatchingRef.current = false;
-          setRefetchMs(30_000);
-        }
-      }, 3 * 60 * 1000);
+      if (result.error) throw new Error(result.error);
+
+      const vendor = result.vendor || "Document";
+      const amount = result.amount ? ` · ${result.currency ?? "INR"} ${result.amount}` : "";
+      const decision = result.decision === "auto_execute" ? "Auto-approved"
+        : result.decision === "human_review" ? "Needs review"
+        : result.decision === "warn" ? "Flagged"
+        : "Processed";
+
+      toast(`${vendor}${amount}`, "success", decision, 6000);
 
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
     } catch (err: any) {
       dismiss(toastId);
-      toast("Upload failed", "error", err.response?.data?.error || err.message);
+      const msg = err.response?.data?.error || err.message || "Processing failed";
+      toast("Processing failed", "error", msg, 8000);
     } finally {
       setIsProcessing(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

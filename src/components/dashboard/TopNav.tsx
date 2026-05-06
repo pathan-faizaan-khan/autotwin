@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Bell, LogOut, User, Settings, X, PlusCircle, Loader2, CheckCircle2, Upload } from "lucide-react";
+import { Search, Bell, LogOut, User, Settings, X, PlusCircle, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -24,6 +24,7 @@ export default function TopNav() {
   const [uploading, setUploading] = useState(false);
   const [uploadStep, setUploadStep] = useState("");
   const [uploadDone, setUploadDone] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   const userRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -65,6 +66,7 @@ export default function TopNav() {
     try {
       setUploading(true);
       setUploadDone(false);
+      setUploadError("");
       setUploadStep("Uploading to secure vault...");
 
       const fileExt = file.name.split(".").pop();
@@ -78,16 +80,23 @@ export default function TopNav() {
         .from("invoices")
         .getPublicUrl(data.path);
 
-      setUploadStep("Running VisionAgent extraction...");
+      setUploadStep("Extracting text from document...");
       const formData = new FormData();
       formData.append("file", file);
       formData.append("userId", user.uid);
       formData.append("fileUrl", publicUrl);
-      await axios.post("/api/process-invoice", formData, {
+      const { data: result } = await axios.post("/api/process-invoice", formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        timeout: 65000,
       });
 
-      setUploadStep("Syncing memory graph...");
+      if (result.error) throw new Error(result.error);
+
+      const label = result.vendor
+        ? `${result.vendor} · ${result.currency ?? "INR"} ${result.amount}`
+        : "Document processed";
+      setUploadStep(label);
+
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["invoices"] }),
         queryClient.invalidateQueries({ queryKey: ["analytics"] }),
@@ -97,10 +106,14 @@ export default function TopNav() {
       setTimeout(() => {
         setUploadDone(false);
         setUploading(false);
-      }, 3000);
+      }, 4000);
     } catch (err: any) {
-      alert("Upload error: " + err.message);
-      setUploading(false);
+      const msg = err.response?.data?.error || err.message || "Upload failed";
+      setUploadError(msg);
+      setTimeout(() => {
+        setUploadError("");
+        setUploading(false);
+      }, 5000);
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -147,11 +160,17 @@ export default function TopNav() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
-              className="hidden md:flex items-center gap-2 bg-violet-500/15 border border-violet-500/30 rounded-full px-5 py-2.5 text-[13px] font-semibold text-violet-300"
+              className={`hidden md:flex items-center gap-2 rounded-full px-5 py-2.5 text-[13px] font-semibold max-w-[320px] truncate ${
+                uploadError
+                  ? "bg-red-500/15 border border-red-500/30 text-red-300"
+                  : "bg-violet-500/15 border border-violet-500/30 text-violet-300"
+              }`}
             >
-              {uploadDone
-                ? <><CheckCircle2 size={14} className="text-emerald-400" /> <span className="text-emerald-300">Processed!</span></>
-                : <><Loader2 size={14} className="animate-spin" /> {uploadStep}</>
+              {uploadError
+                ? <><XCircle size={14} className="text-red-400 shrink-0" /> <span className="truncate">{uploadError}</span></>
+                : uploadDone
+                  ? <><CheckCircle2 size={14} className="text-emerald-400 shrink-0" /> <span className="text-emerald-300 truncate">{uploadStep}</span></>
+                  : <><Loader2 size={14} className="animate-spin shrink-0" /> <span className="truncate">{uploadStep}</span></>
               }
             </motion.div>
           ) : (

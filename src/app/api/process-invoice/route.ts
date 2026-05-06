@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
+export const maxDuration = 60; // seconds — n8n responds after Parse Document Type (~30-45s)
+
 const N8N_URL = process.env.N8N_WEBHOOK_URL || "https://n8n-production-2f47.up.railway.app";
 const N8N_SECRET = process.env.WEBHOOK_SECRET || "";
 
@@ -37,21 +39,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing file or fileUrl" }, { status: 400 });
     }
 
-    // Fire-and-forget: trigger N8N pipeline without waiting for it to complete.
-    // This prevents users from seeing a timeout and retrying, which caused double uploads.
-    fetch(`${N8N_URL}/webhook/autotwin/ocr`, {
+    // Await n8n — the Respond node fires after Parse Document Type (~30-45s).
+    // WA notifications and Analysis Engine continue in background after n8n responds.
+    const n8nRes = await fetch(`${N8N_URL}/webhook/autotwin/ocr`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-autotwin-secret": N8N_SECRET },
       body: JSON.stringify({ fileUrl, userId, fileName, source: "website", mimeType }),
-      signal: AbortSignal.timeout(35000), // 35s — covers Railway cold-start (~30s wake time)
-    }).catch((err) => {
-      // Log but do not surface — the file is already uploaded; N8N will process it
-      console.error("[process-invoice] N8N trigger failed (non-fatal):", err.message);
+      signal: AbortSignal.timeout(55000),
     });
 
-    return NextResponse.json({ success: true, message: "Invoice received and queued for processing." });
+    if (!n8nRes.ok) {
+      const body = await n8nRes.json().catch(() => ({}));
+      const errorMsg =
+        body?.message || body?.error || `Processing failed (HTTP ${n8nRes.status})`;
+      console.error("[process-invoice] n8n error:", errorMsg);
+      return NextResponse.json({ error: errorMsg }, { status: 422 });
+    }
+
+    const result = await n8nRes.json();
+    return NextResponse.json({ success: true, ...result });
   } catch (err: any) {
-    console.error("[process-invoice]", err.message);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const msg = err.name === "TimeoutError"
+      ? "Processing timed out — the document may still be analyzed in the background."
+      : err.message;
+    console.error("[process-invoice]", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
