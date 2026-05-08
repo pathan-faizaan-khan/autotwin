@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const maxDuration = 60; // seconds — n8n responds after Parse Document Type (~30-45s)
 
-const N8N_URL = process.env.N8N_WEBHOOK_URL || "https://n8n-production-2f47.up.railway.app";
+const N8N_URL = process.env.N8N_WEBHOOK_URL || "https://web-production-8cd36.up.railway.app";
 const N8N_SECRET = process.env.WEBHOOK_SECRET || "";
 
 export async function POST(req: Request) {
