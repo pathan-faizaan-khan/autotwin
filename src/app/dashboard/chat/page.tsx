@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Bot, User, Sparkles, Loader2, Key, Paperclip, File, X,
-  Image as ImageIcon, MessageSquare, Clock, ChevronRight, FileText, Zap,
+  Image as ImageIcon, MessageSquare, Clock, ChevronRight, FileText, Zap, Plus,
 } from "lucide-react";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
@@ -12,6 +12,8 @@ import remarkGfm from "remark-gfm";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import imageCompression from "browser-image-compression";
+
+const MAX_CONTEXT_MESSAGES = 50;
 
 type Message = {
   id?: string;
@@ -76,6 +78,16 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const msgRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
+  const isContextFull = messages.filter(m => m.id !== "welcome").length >= MAX_CONTEXT_MESSAGES;
+
+  const handleNewChat = () => {
+    setMessages([{ ...WELCOME, timestamp: Date.now() }]);
+    setInput("");
+    setStagedFile(null);
+    setProcessMode(null);
+    setErrorMsg(null);
+  };
+
   // Load chat history from Supabase
   useEffect(() => {
     if (!user?.uid) return;
@@ -85,7 +97,7 @@ export default function ChatPage() {
       .select("id, role, content, channel, language, created_at")
       .eq("user_id", user.uid)
       .order("created_at", { ascending: true })
-      .limit(150)
+      .limit(MAX_CONTEXT_MESSAGES)
       .then(({ data, error }) => {
         if (error) console.warn("History load error:", error.message);
         setMessages(data && data.length > 0 ? data.map(mapRow) : [WELCOME]);
@@ -198,6 +210,7 @@ export default function ChatPage() {
   const sendMessage = async () => {
     if (!input.trim() && !stagedFile) return;
     if (!user?.uid) return;
+    if (isContextFull) return;
 
     setErrorMsg(null);
     setIsLoading(true);
@@ -250,18 +263,29 @@ export default function ChatPage() {
   const busy = isLoading || uploading || processing;
 
   return (
-    <div className="h-full flex flex-col max-w-[900px] mx-auto pb-6">
-      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 shrink-0 text-center relative">
-        <h1 className="font-outfit text-4xl font-black text-white tracking-tighter mb-2 flex items-center justify-center gap-3">
-          <Sparkles className="text-violet-500" size={24} /> Generative Operations
+    <div className="h-full flex flex-col max-w-[900px] mx-auto pb-4 md:pb-6 px-2 md:px-0">
+      {/* Header */}
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-4 md:mb-6 shrink-0 text-center relative">
+        <h1 className="font-outfit text-2xl md:text-4xl font-black text-white tracking-tighter mb-1 md:mb-2 flex items-center justify-center gap-3">
+          <Sparkles className="text-violet-500" size={20} /> Generative Operations
         </h1>
-        <p className="text-sm text-zinc-500 font-light">Direct neural interface to your extracted financial data.</p>
-        <button
-          onClick={() => setHistoryOpen(true)}
-          className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2 text-xs text-zinc-500 hover:text-violet-400 transition-colors px-3 py-2 rounded-xl hover:bg-white/5"
-        >
-          <Clock size={14} /> History
-        </button>
+        <p className="text-xs md:text-sm text-zinc-500 font-light">Direct neural interface to your extracted financial data.</p>
+
+        {/* Header action buttons */}
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 md:gap-2">
+          <button
+            onClick={handleNewChat}
+            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-violet-400 transition-colors px-2 md:px-3 py-2 rounded-xl hover:bg-white/5"
+          >
+            <Plus size={13} /> New Chat
+          </button>
+          <button
+            onClick={() => setHistoryOpen(true)}
+            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-violet-400 transition-colors px-2 md:px-3 py-2 rounded-xl hover:bg-white/5"
+          >
+            <Clock size={13} /> History
+          </button>
+        </div>
       </motion.div>
 
       {/* History Drawer */}
@@ -271,12 +295,12 @@ export default function ChatPage() {
             <motion.div
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setHistoryOpen(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              className="fixed top-24 inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm z-40"
             />
             <motion.div
               initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 280 }}
-              className="fixed left-0 top-0 h-full w-[340px] bg-[#0a0a0a] border-r border-white/[0.07] z-50 flex flex-col"
+              className="fixed left-0 top-24 h-[calc(100vh-6rem)] w-[85vw] max-w-[340px] bg-[#0a0a0a] border-r border-white/[0.07] z-50 flex flex-col"
             >
               <div className="p-5 border-b border-white/[0.06] flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2">
@@ -324,10 +348,12 @@ export default function ChatPage() {
         )}
       </AnimatePresence>
 
-      <div className="bg-white/[0.01] border border-white/[0.05] rounded-[40px] overflow-hidden flex flex-col flex-1 relative min-h-0">
+      {/* Chat container */}
+      <div className="bg-white/[0.01] border border-white/[0.05] rounded-[24px] md:rounded-[40px] overflow-hidden flex flex-col flex-1 relative min-h-0">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] bg-violet-600/5 blur-[100px] rounded-full pointer-events-none" />
 
-        <div className="flex-1 overflow-y-auto p-8 space-y-8 relative z-10 scroll-smooth">
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 md:space-y-8 relative z-10 scroll-smooth">
           {historyLoading && (
             <div className="flex justify-center py-8">
               <Loader2 size={20} className="animate-spin text-zinc-600" />
@@ -340,15 +366,15 @@ export default function ChatPage() {
               ref={(el) => { if (m.id) msgRefs.current[m.id] = el; }}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`flex max-w-[85%] gap-4 ${m.role === "user" ? "ml-auto flex-row-reverse" : ""}`}
+              className={`flex max-w-[92%] md:max-w-[85%] gap-3 md:gap-4 ${m.role === "user" ? "ml-auto flex-row-reverse" : ""}`}
             >
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-lg ${m.role === "user" ? "bg-white/10 text-white" : "bg-gradient-to-br from-violet-600 to-indigo-600 text-white"}`}>
-                {m.role === "user" ? <User size={16} /> : <Bot size={16} />}
+              <div className={`w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 shadow-lg ${m.role === "user" ? "bg-white/10 text-white" : "bg-gradient-to-br from-violet-600 to-indigo-600 text-white"}`}>
+                {m.role === "user" ? <User size={14} /> : <Bot size={14} />}
               </div>
               <div className={`flex flex-col gap-1 ${m.role === "user" ? "items-end" : "items-start"}`}>
-                <div className={`px-6 py-4 text-[15px] leading-relaxed backdrop-blur-md shadow-xl ${m.role === "user" ? "bg-white/10 rounded-3xl rounded-tr-lg text-white" : "bg-black/40 border border-white/[0.05] rounded-3xl rounded-tl-lg text-zinc-300"}`}>
+                <div className={`px-4 md:px-6 py-3 md:py-4 text-[13px] md:text-[15px] leading-relaxed backdrop-blur-md shadow-xl ${m.role === "user" ? "bg-white/10 rounded-3xl rounded-tr-lg text-white" : "bg-black/40 border border-white/[0.05] rounded-3xl rounded-tl-lg text-zinc-300"}`}>
                   {m.attachment && (
-                    <div className="mb-3 max-w-[280px]">
+                    <div className="mb-3 max-w-[240px] md:max-w-[280px]">
                       {m.attachment.type === "image" ? (
                         <img src={m.attachment.url} alt={m.attachment.name} className="w-full rounded-xl border border-white/10" />
                       ) : (
@@ -391,11 +417,11 @@ export default function ChatPage() {
           ))}
 
           {busy && (
-            <div className="flex gap-4 max-w-[85%]">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-violet-600/20 text-violet-400">
+            <div className="flex gap-3 md:gap-4 max-w-[92%] md:max-w-[85%]">
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center shrink-0 bg-violet-600/20 text-violet-400">
                 <Loader2 size={16} className="animate-spin" />
               </div>
-              <div className="px-6 py-4 bg-transparent text-zinc-500 flex items-center gap-2 text-sm font-medium">
+              <div className="px-4 md:px-6 py-3 md:py-4 bg-transparent text-zinc-500 flex items-center gap-2 text-sm font-medium">
                 {uploading ? "Compressing & Up-Linking..." : processing ? "Running OCR pipeline (~30s)..." : "Generating response..."}
               </div>
             </div>
@@ -403,7 +429,30 @@ export default function ChatPage() {
           <div ref={bottomRef} className="h-4" />
         </div>
 
-        <div className="p-6 bg-[#030303] border-t border-white/[0.05] relative z-10 flex flex-col gap-4">
+        {/* Context window full banner */}
+        <AnimatePresence>
+          {isContextFull && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              className="mx-4 mb-3 px-4 py-3 rounded-2xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-between gap-3 z-10"
+            >
+              <p className="text-xs text-violet-300">
+                Context window full ({MAX_CONTEXT_MESSAGES} messages). Start a new chat to continue.
+              </p>
+              <button
+                onClick={handleNewChat}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition-colors shrink-0"
+              >
+                <Plus size={12} /> New Chat
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Input area */}
+        <div className="p-3 md:p-6 bg-[#030303] border-t border-white/[0.05] relative z-10 flex flex-col gap-3 md:gap-4">
           <AnimatePresence>
             {stagedFile && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="flex flex-col gap-2">
@@ -413,7 +462,7 @@ export default function ChatPage() {
                   ) : (
                     <FileText size={16} className="text-violet-400" />
                   )}
-                  <span className="text-xs text-zinc-300 font-medium max-w-[200px] truncate">{stagedFile.name}</span>
+                  <span className="text-xs text-zinc-300 font-medium max-w-[150px] md:max-w-[200px] truncate">{stagedFile.name}</span>
                   <span className="text-[10px] text-zinc-500">{(stagedFile.size / 1024 / 1024).toFixed(2)}MB</span>
                   <button
                     onClick={() => { setStagedFile(null); setProcessMode(null); }}
@@ -443,7 +492,7 @@ export default function ChatPage() {
             )}
           </AnimatePresence>
 
-          <div className="flex items-end gap-3 max-w-4xl mx-auto w-full">
+          <div className="flex items-end gap-2 md:gap-3 w-full">
             <input
               type="file"
               ref={fileInputRef}
@@ -453,10 +502,10 @@ export default function ChatPage() {
             />
             <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={busy}
-              className="w-[50px] h-[50px] rounded-full bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-violet-400 transition-colors shrink-0"
+              disabled={busy || isContextFull}
+              className="w-10 h-10 md:w-[50px] md:h-[50px] rounded-full bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-zinc-400 hover:text-violet-400 transition-colors shrink-0 disabled:opacity-40"
             >
-              <Paperclip size={20} />
+              <Paperclip size={18} />
             </button>
 
             <textarea
@@ -468,26 +517,28 @@ export default function ChatPage() {
                   handleSend();
                 }
               }}
-              disabled={busy}
+              disabled={busy || isContextFull}
               placeholder={
-                processMode === "invoice"
+                isContextFull
+                  ? "Context window full — start a new chat above"
+                  : processMode === "invoice"
                   ? "Add a note (optional) or press Enter to process..."
                   : "Query the memory graph... (Shift+Enter for newline)"
               }
-              className="flex-1 bg-white/[0.03] border border-white/[0.08] focus:border-white/20 transition-all rounded-3xl py-4 px-6 text-white text-[15px] outline-none resize-none min-h-[50px] max-h-[150px] custom-scrollbar"
+              className="flex-1 bg-white/[0.03] border border-white/[0.08] focus:border-white/20 transition-all rounded-2xl md:rounded-3xl py-3 md:py-4 px-4 md:px-6 text-white text-[13px] md:text-[15px] outline-none resize-none min-h-[44px] md:min-h-[50px] max-h-[120px] md:max-h-[150px] custom-scrollbar disabled:opacity-40"
               rows={1}
             />
 
             <button
               onClick={handleSend}
-              disabled={busy || (!input.trim() && !stagedFile)}
-              className={`w-[50px] h-[50px] rounded-full disabled:bg-white/10 disabled:text-zinc-600 text-white flex items-center justify-center transition-all shrink-0 shadow-lg disabled:shadow-none ${
+              disabled={busy || (!input.trim() && !stagedFile) || isContextFull}
+              className={`w-10 h-10 md:w-[50px] md:h-[50px] rounded-full disabled:bg-white/10 disabled:text-zinc-600 text-white flex items-center justify-center transition-all shrink-0 shadow-lg disabled:shadow-none ${
                 processMode === "invoice"
                   ? "bg-violet-800 hover:bg-violet-700 shadow-violet-800/20"
                   : "bg-violet-600 hover:bg-violet-500 shadow-violet-500/20"
               }`}
             >
-              {processMode === "invoice" ? <Zap size={18} /> : <Send size={18} className={(input.trim() || stagedFile) && !isLoading ? "ml-1" : ""} />}
+              {processMode === "invoice" ? <Zap size={16} /> : <Send size={16} className={(input.trim() || stagedFile) && !isLoading ? "ml-0.5" : ""} />}
             </button>
           </div>
 

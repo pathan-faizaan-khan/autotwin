@@ -36,7 +36,11 @@ export default function GoogleOneTap({ context = "signin" }: Props) {
         window.google.accounts.id.initialize({
           client_id: clientId,
           context,
-          use_fedcm_for_prompt: true,
+          // NOTE: use_fedcm_for_prompt removed — FedCM is strict about
+          // authorized origins and silently fails on unlisted domains.
+          // Google will auto-use FedCM where supported without this flag.
+          cancel_on_tap_outside: false,
+          auto_select: false,
           callback: async (response: { credential: string }) => {
             try {
               const firebaseCred = GoogleAuthProvider.credential(response.credential);
@@ -57,7 +61,17 @@ export default function GoogleOneTap({ context = "signin" }: Props) {
             }
           },
         });
-        window.google.accounts.id.prompt();
+
+        // Show prompt with notification callback for debug visibility
+        window.google.accounts.id.prompt((notification: any) => {
+          if (notification.isNotDisplayed()) {
+            console.debug("[OneTap] not displayed:", notification.getNotDisplayedReason());
+          } else if (notification.isSkippedMoment()) {
+            console.debug("[OneTap] skipped:", notification.getSkippedReason());
+          } else if (notification.isDismissedMoment()) {
+            console.debug("[OneTap] dismissed:", notification.getDismissedReason());
+          }
+        });
       };
 
       if (window.google?.accounts?.id) {

@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from "lucide-react";
+import {
+  Mail, Lock, Eye, EyeOff, AlertCircle, Loader2,
+  Shield, Zap, BarChart3, Bot, CheckCircle2, ArrowRight,
+} from "lucide-react";
 import AutoTwinLogo from "@/components/AutoTwinLogo";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
@@ -19,6 +22,29 @@ function GoogleIcon() {
     </svg>
   );
 }
+
+const features = [
+  {
+    icon: Bot,
+    title: "AI-Powered Financial Memory",
+    desc: "Natural language queries across all your invoices, vendors, and transactions.",
+  },
+  {
+    icon: Shield,
+    title: "Risk Prevention Engine",
+    desc: "Confidence scoring stops duplicate payments and fraud before they happen.",
+  },
+  {
+    icon: Zap,
+    title: "Instant OCR Extraction",
+    desc: "Drop any invoice — PDF, image, WhatsApp — and get structured data in seconds.",
+  },
+  {
+    icon: BarChart3,
+    title: "Live Financial Analytics",
+    desc: "Real-time spend breakdowns, anomaly detection, and vendor risk dashboards.",
+  },
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,9 +70,7 @@ export default function LoginPage() {
       const msg = err instanceof Error ? err.message : "";
       if (msg.includes("unauthorized-domain")) {
         setError("This domain is not authorized. Contact support.");
-      } else if (msg.includes("popup-closed-by-user") || msg.includes("cancelled-popup-request")) {
-        // User dismissed popup — not an error, just reset
-      } else {
+      } else if (!msg.includes("popup-closed-by-user") && !msg.includes("cancelled-popup-request")) {
         setError("Google sign-in failed. Please try again.");
       }
     } finally {
@@ -77,113 +101,220 @@ export default function LoginPage() {
     }
   };
 
-  const inputStyle = {
-    width: "100%", padding: "11px 14px 11px 40px", borderRadius: 10,
-    background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-    color: "#fafafa", fontSize: 14, outline: "none",
-    boxSizing: "border-box" as const, transition: "border-color 0.2s",
-  };
-
   return (
-    <div style={{ minHeight: "100vh", background: "#09090b", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", fontFamily: "Inter, sans-serif" }}>
+    <div className="min-h-screen bg-[#030303] flex overflow-hidden">
       <GoogleOneTap context="signin" />
-      {/* Background grid */}
-      <div style={{ position: "fixed", inset: 0, backgroundImage: "linear-gradient(rgba(139,92,246,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.04) 1px, transparent 1px)", backgroundSize: "64px 64px", pointerEvents: "none" }} />
-      <div style={{ position: "fixed", inset: 0, background: "radial-gradient(ellipse 60% 40% at 50% 0%, rgba(124,58,237,0.1), transparent)", pointerEvents: "none" }} />
 
-      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-        style={{ width: "100%", maxWidth: 420, position: "relative", zIndex: 10 }}>
+      {/* ── Left panel: Features ── */}
+      <div className="hidden lg:flex flex-col flex-1 relative overflow-hidden p-12 xl:p-16">
+        {/* Animated gradient background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-violet-950/80 via-[#030303] to-indigo-950/60" />
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-violet-600/15 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] bg-indigo-600/10 blur-[100px] rounded-full" />
+        {/* Grid */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: "linear-gradient(rgba(139,92,246,1) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,1) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+        }} />
 
-        {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <Link href="/" style={{ textDecoration: "none", display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-            <AutoTwinLogo size={48} glow />
-            <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: "#fafafa" }}>
-              AutoTwin{" "}
-              <span style={{ backgroundImage: "linear-gradient(135deg,#a78bfa,#818cf8,#f472b6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>AI</span>
+        <div className="relative z-10 flex flex-col h-full">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-3 group w-fit">
+            <AutoTwinLogo size={40} glow />
+            <span className="font-outfit text-xl font-black tracking-tighter text-white">
+              AutoTwin<span className="text-violet-400">AI</span>
+            </span>
+          </Link>
+
+          {/* Main copy */}
+          <div className="mt-auto mb-10">
+            <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-semibold mb-6">
+                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+                Trusted by 500+ finance teams
+              </span>
+              <h2 className="font-outfit text-4xl xl:text-5xl font-black text-white tracking-tighter leading-[1.1] mb-6">
+                Your financial data,<br />
+                <span className="bg-gradient-to-r from-violet-400 via-indigo-400 to-pink-400 bg-clip-text text-transparent">
+                  finally intelligent.
+                </span>
+              </h2>
+              <p className="text-zinc-400 text-lg leading-relaxed max-w-md">
+                AutoTwin AI extracts, analyzes, and protects your financial operations — across Gmail, WhatsApp, and your entire invoice stack.
+              </p>
+            </motion.div>
+
+            {/* Feature list */}
+            <motion.div
+              initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+              className="mt-10 space-y-4"
+            >
+              {features.map((f, i) => (
+                <motion.div
+                  key={f.title}
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.25 + i * 0.07 }}
+                  className="flex items-start gap-4"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                    <f.icon size={16} className="text-violet-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-zinc-100">{f.title}</p>
+                    <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{f.desc}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+
+          {/* Trust bar */}
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+            className="flex items-center gap-3 pt-8 border-t border-white/[0.05]"
+          >
+            <div className="flex -space-x-2">
+              {["V", "S", "R", "M"].map((l, i) => (
+                <div key={i} className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 border-2 border-[#030303] flex items-center justify-center text-[10px] font-bold text-white">
+                  {l}
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-zinc-500">
+              <span className="text-zinc-300 font-semibold">500+ finance teams</span> rely on AutoTwin AI daily
+            </p>
+          </motion.div>
+        </div>
+      </div>
+
+      {/* ── Right panel: Login form ── */}
+      <div className="w-full lg:w-[460px] xl:w-[500px] flex flex-col items-center justify-center p-6 md:p-10 lg:p-12 relative bg-[#030303] lg:border-l lg:border-white/[0.04]">
+        {/* Mobile logo */}
+        <div className="lg:hidden mb-8 text-center">
+          <Link href="/" className="inline-flex flex-col items-center gap-3">
+            <AutoTwinLogo size={44} glow />
+            <span className="font-outfit text-xl font-black tracking-tighter text-white">
+              AutoTwin<span className="text-violet-400">AI</span>
             </span>
           </Link>
         </div>
 
-        {/* Card */}
-        <div style={{ borderRadius: 20, border: "1px solid rgba(255,255,255,0.07)", background: "rgba(14,14,20,0.85)", backdropFilter: "blur(24px)", padding: 32, boxShadow: "0 32px 64px rgba(0,0,0,0.5)" }}>
-          <div style={{ marginBottom: 24 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fafafa", marginBottom: 6, letterSpacing: "-0.02em" }}>Welcome back</h1>
-            <p style={{ fontSize: 14, color: "#71717a" }}>Sign in to your financial command center</p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          className="w-full max-w-[400px]"
+        >
+          <div className="mb-8">
+            <h1 className="text-2xl md:text-3xl font-outfit font-black text-white tracking-tighter mb-2">
+              Welcome back
+            </h1>
+            <p className="text-zinc-500 text-sm">Sign in to your financial command center</p>
           </div>
 
           {/* Error */}
           {error && (
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-              style={{ marginBottom: 20, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", display: "flex", alignItems: "center", gap: 10 }}>
-              <AlertCircle size={15} color="#f87171" />
-              <span style={{ fontSize: 13, color: "#f87171" }}>{error}</span>
+            <motion.div
+              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+              className="mb-5 px-4 py-3 rounded-xl bg-red-500/8 border border-red-500/20 flex items-center gap-3"
+            >
+              <AlertCircle size={15} className="text-red-400 shrink-0" />
+              <span className="text-sm text-red-400">{error}</span>
             </motion.div>
           )}
 
-          {/* Google Sign In */}
-          <button onClick={handleGoogle} disabled={googleLoading || loading}
-            style={{ width: "100%", padding: "11px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#d4d4d8", fontSize: 14, fontWeight: 600, cursor: googleLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 20, transition: "all 0.2s" }}
-            onMouseEnter={e => { if (!googleLoading) { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; } }}
-            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; }}>
-            {googleLoading ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <GoogleIcon />}
+          {/* Google */}
+          <button
+            id="google-signin-btn"
+            onClick={handleGoogle}
+            disabled={googleLoading || loading}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/[0.16] text-zinc-200 text-sm font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mb-5"
+          >
+            {googleLoading ? <Loader2 size={18} className="animate-spin" /> : <GoogleIcon />}
             {googleLoading ? "Signing in..." : "Continue with Google"}
           </button>
 
           {/* Divider */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.07)" }} />
-            <span style={{ fontSize: 12, color: "#52525b", whiteSpace: "nowrap" }}>or sign in with email</span>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.07)" }} />
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 h-px bg-white/[0.06]" />
+            <span className="text-xs text-zinc-600">or sign in with email</span>
+            <div className="flex-1 h-px bg-white/[0.06]" />
           </div>
 
-          {/* Email form */}
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#a1a1aa", marginBottom: 8, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Email</label>
-              <div style={{ position: "relative" }}>
-                <Mail size={15} color="#52525b" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
-                <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@company.com"
-                  style={inputStyle}
-                  onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
-                  onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.08)")} />
+              <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Email</label>
+              <div className="relative">
+                <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  placeholder="you@company.com"
+                  className="w-full bg-white/[0.03] border border-white/[0.07] hover:border-white/[0.12] focus:border-violet-500/50 rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-zinc-600 outline-none transition-all"
+                />
               </div>
             </div>
 
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#a1a1aa", marginBottom: 8, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Password</label>
-              <div style={{ position: "relative" }}>
-                <Lock size={15} color="#52525b" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
-                <input type={showPass ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••"
-                  style={{ ...inputStyle, paddingRight: 42 }}
-                  onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
-                  onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.08)")} />
-                <button type="button" onClick={() => setShowPass(!showPass)}
-                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#52525b", display: "flex" }}>
+              <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Password</label>
+              <div className="relative">
+                <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
+                <input
+                  type={showPass ? "text" : "password"}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className="w-full bg-white/[0.03] border border-white/[0.07] hover:border-white/[0.12] focus:border-violet-500/50 rounded-xl py-3 pl-11 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPass(!showPass)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors"
+                >
                   {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
 
-            <button type="submit" disabled={loading || googleLoading}
-              style={{ width: "100%", padding: "12px", borderRadius: 10, background: loading ? "rgba(124,58,237,0.4)" : "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "white", fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: loading ? "none" : "0 4px 20px rgba(124,58,237,0.35)", marginTop: 4 }}>
-              {loading ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Signing in...</> : "Sign In →"}
+            <button
+              type="submit"
+              disabled={loading || googleLoading}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-bold transition-all duration-200 shadow-lg shadow-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none mt-2"
+            >
+              {loading ? (
+                <><Loader2 size={16} className="animate-spin" /> Signing in...</>
+              ) : (
+                <>Sign In <ArrowRight size={15} /></>
+              )}
             </button>
           </form>
 
-          <div style={{ marginTop: 24, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.05)", textAlign: "center" }}>
-            <p style={{ fontSize: 13, color: "#71717a" }}>
+          {/* Security note */}
+          <div className="mt-4 flex items-center justify-center gap-2 text-[11px] text-zinc-600">
+            <CheckCircle2 size={11} className="text-emerald-600" />
+            End-to-end encrypted · SOC 2 compliant
+          </div>
+
+          <div className="mt-6 pt-6 border-t border-white/[0.05] text-center">
+            <p className="text-sm text-zinc-500">
               Don&apos;t have an account?{" "}
-              <Link href="/register" style={{ color: "#a78bfa", fontWeight: 600, textDecoration: "none" }}>Create account →</Link>
+              <Link href="/register" className="text-violet-400 hover:text-violet-300 font-semibold transition-colors">
+                Create account →
+              </Link>
             </p>
           </div>
-        </div>
+        </motion.div>
+      </div>
 
-        <p style={{ textAlign: "center", marginTop: 20, fontSize: 12, color: "#3f3f46" }}>
-          Protected by AutoTwin AI Security
-        </p>
-      </motion.div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } } input::placeholder { color: #52525b; }`}</style>
+      <style>{`
+        input::placeholder { color: #52525b; }
+        .bg-red-500\\/8 { background-color: rgba(239,68,68,0.08); }
+      `}</style>
     </div>
   );
 }

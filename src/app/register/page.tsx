@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Mail, Lock, User, Eye, EyeOff, AlertCircle, Loader2, CheckCircle } from "lucide-react";
+import {
+  Mail, Lock, User, Eye, EyeOff, AlertCircle, Loader2, CheckCircle, ArrowRight,
+  Shield, Zap, BarChart3, Bot,
+} from "lucide-react";
 import PhoneInput from "@/components/PhoneInput";
 import AutoTwinLogo from "@/components/AutoTwinLogo";
 import Link from "next/link";
@@ -20,6 +23,13 @@ function GoogleIcon() {
     </svg>
   );
 }
+
+const perks = [
+  { icon: Bot, text: "AI memory across all your invoices" },
+  { icon: Shield, text: "Fraud & duplicate detection built-in" },
+  { icon: Zap, text: "WhatsApp + Gmail invoice automation" },
+  { icon: BarChart3, text: "Real-time spend analytics dashboard" },
+];
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -93,123 +103,166 @@ export default function RegisterPage() {
     }
   };
 
-  const inputStyle = {
-    width: "100%", padding: "11px 14px 11px 40px", borderRadius: 10,
-    background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
-    color: "#fafafa", fontSize: 14, outline: "none",
-    boxSizing: "border-box" as const, transition: "border-color 0.2s",
-  };
-
   return (
-    <div style={{ minHeight: "100vh", background: "#09090b", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", fontFamily: "Inter, sans-serif" }}>
+    <div className="min-h-screen bg-[#030303] flex overflow-hidden">
       <GoogleOneTap context="signup" />
-      <div style={{ position: "fixed", inset: 0, backgroundImage: "linear-gradient(rgba(139,92,246,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.04) 1px, transparent 1px)", backgroundSize: "64px 64px", pointerEvents: "none" }} />
-      <div style={{ position: "fixed", inset: 0, background: "radial-gradient(ellipse 60% 40% at 50% 0%, rgba(124,58,237,0.1), transparent)", pointerEvents: "none" }} />
 
-      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-        style={{ width: "100%", maxWidth: 440, position: "relative", zIndex: 10 }}>
+      {/* ── Left panel: Perks ── */}
+      <div className="hidden lg:flex flex-col flex-1 relative overflow-hidden p-12 xl:p-16">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/80 via-[#030303] to-violet-950/60" />
+        <div className="absolute top-[-20%] right-[-10%] w-[60%] h-[60%] bg-indigo-600/15 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] left-[-5%] w-[40%] h-[40%] bg-violet-600/10 blur-[100px] rounded-full" />
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: "linear-gradient(rgba(99,102,241,1) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,1) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+        }} />
 
-        {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <Link href="/" style={{ textDecoration: "none", display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-            <AutoTwinLogo size={48} glow />
-            <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: "#fafafa" }}>
-              AutoTwin{" "}
-              <span style={{ backgroundImage: "linear-gradient(135deg,#a78bfa,#818cf8,#f472b6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>AI</span>
+        <div className="relative z-10 flex flex-col h-full">
+          <Link href="/" className="flex items-center gap-3 w-fit">
+            <AutoTwinLogo size={40} glow />
+            <span className="font-outfit text-xl font-black tracking-tighter text-white">
+              AutoTwin<span className="text-violet-400">AI</span>
+            </span>
+          </Link>
+
+          <div className="mt-auto mb-10">
+            <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold mb-6">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Free 14-day trial — no credit card required
+              </span>
+              <h2 className="font-outfit text-4xl xl:text-5xl font-black text-white tracking-tighter leading-[1.1] mb-6">
+                Stop financial mistakes<br />
+                <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-pink-400 bg-clip-text text-transparent">
+                  before they cost you.
+                </span>
+              </h2>
+              <p className="text-zinc-400 text-lg leading-relaxed max-w-md">
+                Join 500+ finance teams automating invoice processing, catching fraud, and getting AI-powered insights — starting today.
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+              className="mt-10 grid grid-cols-1 gap-3"
+            >
+              {perks.map((p, i) => (
+                <motion.div
+                  key={p.text}
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 + i * 0.07 }}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.02] border border-white/[0.05]"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                    <p.icon size={15} className="text-violet-400" />
+                  </div>
+                  <span className="text-sm text-zinc-300 font-medium">{p.text}</span>
+                  <CheckCircle size={14} className="text-emerald-500 ml-auto shrink-0" />
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Right panel: Register form ── */}
+      <div className="w-full lg:w-[500px] xl:w-[540px] flex flex-col items-center justify-center p-6 md:p-10 lg:p-12 relative bg-[#030303] lg:border-l lg:border-white/[0.04] overflow-y-auto">
+        <div className="lg:hidden mb-8 text-center">
+          <Link href="/" className="inline-flex flex-col items-center gap-3">
+            <AutoTwinLogo size={44} glow />
+            <span className="font-outfit text-xl font-black tracking-tighter text-white">
+              AutoTwin<span className="text-violet-400">AI</span>
             </span>
           </Link>
         </div>
 
-        {/* Card */}
-        <div style={{ borderRadius: 20, border: "1px solid rgba(255,255,255,0.07)", background: "rgba(14,14,20,0.85)", backdropFilter: "blur(24px)", padding: 32, boxShadow: "0 32px 64px rgba(0,0,0,0.5)" }}>
-          <div style={{ marginBottom: 24 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fafafa", marginBottom: 6, letterSpacing: "-0.02em" }}>Create your account</h1>
-            <p style={{ fontSize: 14, color: "#71717a" }}>Start preventing financial mistakes today</p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          className="w-full max-w-[420px] py-6 lg:py-0"
+        >
+          <div className="mb-7">
+            <h1 className="text-2xl md:text-3xl font-outfit font-black text-white tracking-tighter mb-2">
+              Create your account
+            </h1>
+            <p className="text-zinc-500 text-sm">Start preventing financial mistakes today</p>
           </div>
 
-          {/* Error */}
           {error && (
-            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-              style={{ marginBottom: 20, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", display: "flex", alignItems: "center", gap: 10 }}>
-              <AlertCircle size={15} color="#f87171" />
-              <span style={{ fontSize: 13, color: "#f87171" }}>{error}</span>
+            <motion.div
+              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+              className="mb-5 px-4 py-3 rounded-xl border flex items-center gap-3"
+              style={{ background: "rgba(239,68,68,0.08)", borderColor: "rgba(239,68,68,0.2)" }}
+            >
+              <AlertCircle size={15} className="text-red-400 shrink-0" />
+              <span className="text-sm text-red-400">{error}</span>
             </motion.div>
           )}
 
-          {/* Google Sign Up */}
-          <button onClick={handleGoogle} disabled={googleLoading || loading}
-            style={{ width: "100%", padding: "11px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "#d4d4d8", fontSize: 14, fontWeight: 600, cursor: googleLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 20, transition: "all 0.2s" }}
-            onMouseEnter={e => { if (!googleLoading) { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; } }}
-            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; }}>
-            {googleLoading ? <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> : <GoogleIcon />}
+          <button
+            id="google-signup-btn"
+            onClick={handleGoogle}
+            disabled={googleLoading || loading}
+            className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-white/[0.16] text-zinc-200 text-sm font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed mb-5"
+          >
+            {googleLoading ? <Loader2 size={18} className="animate-spin" /> : <GoogleIcon />}
             {googleLoading ? "Connecting..." : "Sign up with Google"}
           </button>
 
-          {/* Divider */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.07)" }} />
-            <span style={{ fontSize: 12, color: "#52525b", whiteSpace: "nowrap" }}>or register with email</span>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.07)" }} />
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 h-px bg-white/[0.06]" />
+            <span className="text-xs text-zinc-600">or register with email</span>
+            <div className="flex-1 h-px bg-white/[0.06]" />
           </div>
 
-          {/* Email form */}
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#a1a1aa", marginBottom: 8, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Full Name</label>
-              <div style={{ position: "relative" }}>
-                <User size={15} color="#52525b" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
+              <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Full Name</label>
+              <div className="relative">
+                <User size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
                 <input type="text" value={name} onChange={e => setName(e.target.value)} required placeholder="John Smith"
-                  style={inputStyle}
-                  onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
-                  onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.08)")} />
+                  className="w-full bg-white/[0.03] border border-white/[0.07] hover:border-white/[0.12] focus:border-violet-500/50 rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-zinc-600 outline-none transition-all" />
               </div>
             </div>
 
             {/* Email */}
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#a1a1aa", marginBottom: 8, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Work Email</label>
-              <div style={{ position: "relative" }}>
-                <Mail size={15} color="#52525b" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
+              <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Work Email</label>
+              <div className="relative">
+                <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="you@company.com"
-                  style={inputStyle}
-                  onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
-                  onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.08)")} />
+                  className="w-full bg-white/[0.03] border border-white/[0.07] hover:border-white/[0.12] focus:border-violet-500/50 rounded-xl py-3 pl-11 pr-4 text-sm text-white placeholder:text-zinc-600 outline-none transition-all" />
               </div>
             </div>
 
             {/* WhatsApp */}
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#a1a1aa", marginBottom: 8, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>WhatsApp Number</label>
-              <PhoneInput
-                value={whatsapp}
-                onChange={setWhatsapp}
-                placeholder="Phone number (optional)"
-              />
-              <p style={{ fontSize: 11, color: "#52525b", marginTop: 4 }}>Used for WhatsApp invoice alerts (optional)</p>
+              <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-2">WhatsApp Number <span className="normal-case text-zinc-600 font-normal">(optional)</span></label>
+              <PhoneInput value={whatsapp} onChange={setWhatsapp} placeholder="Phone number for invoice alerts" />
             </div>
 
             {/* Password */}
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#a1a1aa", marginBottom: 8, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Password</label>
-              <div style={{ position: "relative" }}>
-                <Lock size={15} color="#52525b" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
+              <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Password</label>
+              <div className="relative">
+                <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
                 <input type={showPass ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="Min. 8 characters"
-                  style={{ ...inputStyle, paddingRight: 42 }}
-                  onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
-                  onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.08)")} />
+                  className="w-full bg-white/[0.03] border border-white/[0.07] hover:border-white/[0.12] focus:border-violet-500/50 rounded-xl py-3 pl-11 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition-all" />
                 <button type="button" onClick={() => setShowPass(!showPass)}
-                  style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#52525b" }}>
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400 transition-colors">
                   {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
               {strengthLevel && (
-                <div style={{ marginTop: 6 }}>
-                  <div style={{ height: 3, borderRadius: 2, background: "#27272a", overflow: "hidden" }}>
+                <div className="mt-2">
+                  <div className="h-1 rounded-full bg-white/5 overflow-hidden">
                     <motion.div initial={{ width: 0 }} animate={{ width: strengthWidth }} transition={{ duration: 0.3 }}
-                      style={{ height: "100%", borderRadius: 2, background: strengthColor }} />
+                      className="h-full rounded-full" style={{ background: strengthColor }} />
                   </div>
-                  <p style={{ fontSize: 11, color: strengthColor, marginTop: 3 }}>
+                  <p className="text-[11px] mt-1" style={{ color: strengthColor }}>
                     {strengthLevel === "strong" ? "Strong password ✓" : strengthLevel === "medium" ? "Medium — add uppercase & numbers" : "Weak password"}
                   </p>
                 </div>
@@ -218,40 +271,38 @@ export default function RegisterPage() {
 
             {/* Confirm */}
             <div>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#a1a1aa", marginBottom: 8, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Confirm Password</label>
-              <div style={{ position: "relative" }}>
-                <Lock size={15} color="#52525b" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
+              <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Confirm Password</label>
+              <div className="relative">
+                <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-600" />
                 <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required placeholder="Repeat password"
+                  className="w-full bg-white/[0.03] rounded-xl py-3 pl-11 pr-11 text-sm text-white placeholder:text-zinc-600 outline-none transition-all"
                   style={{
-                    ...inputStyle, paddingRight: 42,
-                    borderColor: confirm && password !== confirm ? "rgba(239,68,68,0.4)" : confirm && password === confirm ? "rgba(74,222,128,0.4)" : "rgba(255,255,255,0.08)",
-                  }}
-                  onFocus={e => (e.target.style.borderColor = "rgba(139,92,246,0.5)")}
-                  onBlur={e => (e.target.style.borderColor =
-                    password && confirm && password !== confirm ? "rgba(239,68,68,0.4)"
-                    : password && confirm && password === confirm ? "rgba(74,222,128,0.4)"
-                    : "rgba(255,255,255,0.08)")} />
+                    border: confirm && password !== confirm ? "1px solid rgba(239,68,68,0.4)"
+                      : confirm && password === confirm ? "1px solid rgba(74,222,128,0.4)"
+                      : "1px solid rgba(255,255,255,0.07)",
+                  }} />
                 {confirm && password === confirm && (
-                  <CheckCircle size={15} color="#4ade80" style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }} />
+                  <CheckCircle size={15} className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400" />
                 )}
               </div>
             </div>
 
             <button type="submit" disabled={loading || googleLoading}
-              style={{ width: "100%", padding: "12px", borderRadius: 10, background: loading ? "rgba(124,58,237,0.4)" : "linear-gradient(135deg,#7c3aed,#4f46e5)", border: "none", color: "white", fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, boxShadow: loading ? "none" : "0 4px 20px rgba(124,58,237,0.35)", marginTop: 4 }}>
-              {loading ? <><Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> Creating account...</> : "Create Account →"}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-bold transition-all duration-200 shadow-lg shadow-violet-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none mt-2">
+              {loading ? <><Loader2 size={16} className="animate-spin" /> Creating account...</> : <>Create Account <ArrowRight size={15} /></>}
             </button>
           </form>
 
-          <div style={{ marginTop: 24, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.05)", textAlign: "center" }}>
-            <p style={{ fontSize: 13, color: "#71717a" }}>
+          <div className="mt-6 pt-6 border-t border-white/[0.05] text-center">
+            <p className="text-sm text-zinc-500">
               Already have an account?{" "}
-              <Link href="/login" style={{ color: "#a78bfa", fontWeight: 600, textDecoration: "none" }}>Sign in →</Link>
+              <Link href="/login" className="text-violet-400 hover:text-violet-300 font-semibold transition-colors">Sign in →</Link>
             </p>
           </div>
-        </div>
-      </motion.div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } } input::placeholder { color: #52525b; }`}</style>
+        </motion.div>
+      </div>
+
+      <style>{`input::placeholder { color: #52525b; }`}</style>
     </div>
   );
 }
