@@ -298,9 +298,9 @@ export default function ChatPage() {
               className="fixed top-24 inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm z-40"
             />
             <motion.div
-              initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }}
+              initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }}
               transition={{ type: "spring", damping: 28, stiffness: 280 }}
-              className="fixed left-0 top-24 h-[calc(100vh-6rem)] w-[85vw] max-w-[340px] bg-[#0a0a0a] border-r border-white/[0.07] z-50 flex flex-col"
+              className="fixed right-0 top-24 h-[calc(100vh-6rem)] w-[85vw] max-w-[340px] bg-[#0a0a0a] border-l border-white/[0.07] z-50 flex flex-col"
             >
               <div className="p-5 border-b border-white/[0.06] flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2">
