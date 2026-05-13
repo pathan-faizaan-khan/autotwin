@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Inter, Outfit } from "next/font/google";
-import { ShieldCheck, ArrowRight, Loader2, Phone, User, Mail } from "lucide-react";
+import { ShieldCheck, ArrowRight, Loader2, User, Mail } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import PhoneInput from "@/components/PhoneInput";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -137,17 +138,12 @@ export default function OnboardingPage() {
             {/* WhatsApp Number (Mandatory) */}
             <div>
               <label className="text-[11px] font-bold text-zinc-300 uppercase tracking-widest block mb-2">WhatsApp Number (Mandatory)</label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
-                <input 
-                  type="tel" 
-                  required
-                  placeholder="+91 9876543210"
-                  value={formData.whatsappNumber}
-                  onChange={(e) => setFormData({ ...formData, whatsappNumber: e.target.value })}
-                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3.5 pl-11 text-white text-sm outline-none focus:border-violet-500/50 transition-colors"
-                />
-              </div>
+              <PhoneInput
+                value={formData.whatsappNumber}
+                onChange={(val) => setFormData({ ...formData, whatsappNumber: val })}
+                placeholder="Phone number for risk alerts"
+                required
+              />
               <p className="text-[11px] text-zinc-600 mt-2 font-medium">AutoTwin AI needs your number to send risk alerts.</p>
             </div>
 

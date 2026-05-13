@@ -10,6 +10,7 @@ export const users = pgTable("users", {
   displayName: text("display_name"),
   email: text("email").notNull(),
   whatsappNumber: text("whatsapp_number"),              // e.g. "+919876543210"
+  chatbotInitiated: boolean("chatbot_initiated").default(false), // user has started WA chat
   plan: text("plan").default("free"),                   // free | pro | enterprise
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -87,6 +88,8 @@ export const chatMessages = pgTable("chat_messages", {
   userId: text("user_id").notNull(),
   role: text("role").notNull(), // user | assistant
   content: text("content").notNull(),
+  channel: text("channel").default("platform"), // platform | whatsapp | voice
+  language: text("language").default("en"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

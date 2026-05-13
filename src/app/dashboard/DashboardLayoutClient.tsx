@@ -8,6 +8,7 @@ import TopNav from "@/components/dashboard/TopNav";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { useAuth } from "@/context/AuthContext";
 import GlobalVoiceCopilot from "@/components/dashboard/GlobalVoiceCopilot";
+import WhatsAppInitBanner from "@/components/dashboard/WhatsAppInitBanner";
 import Link from "next/link";
 import {
   LayoutDashboard, FileText, MessageSquare, Settings, BarChart3,
@@ -32,6 +33,8 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
   const [checkingSetup, setCheckingSetup] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [showWaBanner, setShowWaBanner] = useState(false);
+  const [waNumber, setWaNumber] = useState<string | null>(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -57,6 +60,10 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
             router.replace("/onboarding");
           } else {
             setCheckingSetup(false);
+            if (data.user?.whatsappNumber && !data.user?.chatbotInitiated) {
+              setWaNumber(data.user.whatsappNumber);
+              setShowWaBanner(true);
+            }
           }
         })
         .catch(() => setCheckingSetup(false));
@@ -87,6 +94,14 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
           style={{ marginLeft: isMobile ? 0 : sidebarWidth }}
         >
           <TopNav onMobileMenuOpen={() => setMobileSidebarOpen(true)} />
+
+          {showWaBanner && (
+            <WhatsAppInitBanner
+              firebaseUid={user.uid}
+              whatsappNumber={waNumber}
+              onDismiss={() => setShowWaBanner(false)}
+            />
+          )}
 
           <main
             id="main-scroll-area"

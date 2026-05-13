@@ -33,6 +33,20 @@ export async function GET(req: Request) {
   }
 }
 
+export async function PATCH(req: Request) {
+  const { firebaseUid, chatbotInitiated } = await req.json();
+  if (!firebaseUid) return NextResponse.json({ error: "Missing firebaseUid" }, { status: 400 });
+
+  try {
+    const db = getDb();
+    if (!db) throw new Error("DB offline");
+    await db.update(users).set({ chatbotInitiated: Boolean(chatbotInitiated), updatedAt: new Date() }).where(eq(users.firebaseUid, firebaseUid));
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request) {
   const body = await req.json();
   const { firebaseUid, email, displayName, whatsappNumber } = body;
