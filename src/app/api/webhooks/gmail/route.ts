@@ -6,6 +6,7 @@ import { google } from "googleapis";
 import { analyzeIsInvoice } from "@/lib/agents/emailAnalyzer";
 import axios from "axios";
 import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 // In-memory lock prevents two simultaneous notifications processing the same message
 const processingIds = new Set<string>();
@@ -202,14 +203,14 @@ export async function POST(req: Request) {
           try {
             const safeName = part.filename!.replace(/[^a-zA-Z0-9.\-_]/g, "_");
             const storageFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}_${safeName}`;
-            const { data: uploadData, error: uploadError } = await supabase.storage
+            const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
               .from("chat-attachments")
               .upload(`invoices/${storageFileName}`, fileObj, { contentType: mimeType });
               
             if (uploadError) {
               console.error(`[Webhook] Supabase upload error:`, uploadError);
             } else if (uploadData?.path) {
-              const { data: urlData } = supabase.storage.from("chat-attachments").getPublicUrl(uploadData.path);
+              const { data: urlData } = supabaseAdmin.storage.from("chat-attachments").getPublicUrl(uploadData.path);
               publicUrl = urlData.publicUrl;
               console.log(`[Webhook] Uploaded to Supabase: ${publicUrl}`);
             }
