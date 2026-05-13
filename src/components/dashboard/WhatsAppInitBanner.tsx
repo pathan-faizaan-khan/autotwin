@@ -15,9 +15,9 @@ const BOT_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_BOT_NUMBER || "";
 export default function WhatsAppInitBanner({ firebaseUid, whatsappNumber, onDismiss }: Props) {
   const [dismissed, setDismissed] = useState(false);
 
-  if (!whatsappNumber || !BOT_NUMBER || dismissed) return null;
+  const waLink = (window as any)._waLink || (BOT_NUMBER ? `https://wa.me/${BOT_NUMBER.replace(/\D/g, "")}?text=Hi` : null);
 
-  const waLink = (window as any)._waLink || `https://wa.me/${BOT_NUMBER.replace(/\D/g, "")}?text=Hi`;
+  if (!whatsappNumber || !waLink || dismissed) return null;
 
   const close = () => { setDismissed(true); onDismiss?.(); };
 
