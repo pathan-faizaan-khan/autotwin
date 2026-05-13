@@ -53,20 +53,25 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
       return;
     }
     if (!loading && user) {
-      fetch(`/api/user/me?firebaseUid=${user.uid}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.needsOnboarding) {
-            router.replace("/onboarding");
-          } else {
-            setCheckingSetup(false);
-            if (data.user?.whatsappNumber && !data.user?.chatbotInitiated) {
-              setWaNumber(data.user.whatsappNumber);
-              setShowWaBanner(true);
+      // Fetch both user profile and dynamic bot info
+      Promise.all([
+        fetch(`/api/user/me?firebaseUid=${user.uid}`).then(r => r.json()),
+        fetch(`/api/whatsapp/bot-info`).then(r => r.json()).catch(() => ({}))
+      ]).then(([userData, botData]) => {
+        if (userData.needsOnboarding) {
+          router.replace("/onboarding");
+        } else {
+          setCheckingSetup(false);
+          if (userData.user?.whatsappNumber && !userData.user?.chatbotInitiated) {
+            setWaNumber(userData.user.whatsappNumber);
+            // Use botData.waLink if available
+            if (botData.waLink) {
+              (window as any)._waLink = botData.waLink;
             }
+            setShowWaBanner(true);
           }
-        })
-        .catch(() => setCheckingSetup(false));
+        }
+      }).catch(() => setCheckingSetup(false));
     }
   }, [user, loading, router]);
 

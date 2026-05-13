@@ -129,15 +129,18 @@ export default function SettingsPage() {
 
   useEffect(() => { loadSettings(); }, [loadSettings]);
 
-  // Load user profile to get current WhatsApp number
+  // Load user profile and dynamic bot info
+  const [botInfo, setBotInfo] = useState<{ phoneNumber?: string; waLink?: string } | null>(null);
+
   useEffect(() => {
     if (!user?.uid) return;
-    fetch(`/api/users/profile?firebaseUid=${user.uid}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data?.whatsappNumber) setCurrentPhone(data.whatsappNumber);
-      })
-      .catch(() => {});
+    Promise.all([
+      fetch(`/api/users/profile?firebaseUid=${user.uid}`).then(r => r.json()),
+      fetch(`/api/whatsapp/bot-info`).then(r => r.json()).catch(() => ({}))
+    ]).then(([data, botData]) => {
+      if (data?.whatsappNumber) setCurrentPhone(data.whatsappNumber);
+      if (botData?.phoneNumber) setBotInfo(botData);
+    }).catch(() => {});
   }, [user?.uid]);
 
   const handleSavePhone = async () => {
@@ -460,9 +463,23 @@ export default function SettingsPage() {
                     </button>
 
                     <div className="p-4 rounded-2xl bg-violet-500/[0.05] border border-violet-500/15">
-                      <p className="text-zinc-500 text-xs leading-relaxed">
+                      <p className="text-zinc-500 text-xs leading-relaxed mb-4">
                         <span className="text-violet-400 font-semibold">How it works:</span> Send any invoice image to the AutoTwin WhatsApp bot from this number. The invoice will be processed and appear directly in your dashboard under your account.
                       </p>
+                      { (botInfo?.waLink || process.env.NEXT_PUBLIC_WHATSAPP_BOT_NUMBER) ? (
+                        <a
+                          href={botInfo?.waLink || `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_BOT_NUMBER?.replace(/\D/g, "")}?text=Hi`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold hover:bg-emerald-500/30 transition-all"
+                        >
+                          <MessageSquare size={14} /> Open WhatsApp Bot {botInfo?.phoneNumber && `(${botInfo.phoneNumber})`}
+                        </a>
+                      ) : (
+                        <p className="text-amber-400/60 text-[10px] italic">
+                          * Bot number not configured in environment variables.
+                        </p>
+                      )}
                     </div>
                   </div>
                 ) : (
