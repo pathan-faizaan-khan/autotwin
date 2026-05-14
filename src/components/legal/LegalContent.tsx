@@ -38,7 +38,8 @@ export default function LegalContent({ title, lastUpdated, children }: Props) {
             prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-6 prose-h2:border-b prose-h2:border-white/10 prose-h2:pb-3
             prose-h3:text-lg prose-h3:mt-8 prose-h3:mb-4
             prose-p:text-zinc-400 prose-p:leading-relaxed prose-p:mb-6
-            prose-li:text-zinc-400 prose-li:mb-2
+            prose-li:text-zinc-400 prose-li:mb-4
+            prose-ul:my-6 prose-ol:my-6
             prose-strong:text-zinc-100 prose-strong:font-bold
             prose-hr:border-white/5 prose-hr:my-12
           ">
