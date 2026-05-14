@@ -41,7 +41,7 @@ export default function WhatsAppInitBanner({ firebaseUid, whatsappNumber, onDism
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -12 }}
           transition={{ duration: 0.3 }}
-          className="mx-4 md:mx-8 lg:mx-12 mt-2 mb-[-8px] flex items-center gap-3 px-4 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20"
+          className="mt-2 mb-6 flex items-center gap-3 px-4 py-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 w-full"
         >
           <div className="w-8 h-8 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
             <MessageCircle size={16} className="text-emerald-400" />

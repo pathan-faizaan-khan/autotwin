@@ -100,13 +100,7 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
         >
           <TopNav onMobileMenuOpen={() => setMobileSidebarOpen(true)} />
 
-          {showWaBanner && (
-            <WhatsAppInitBanner
-              firebaseUid={user.uid}
-              whatsappNumber={waNumber}
-              onDismiss={() => setShowWaBanner(false)}
-            />
-          )}
+
 
           <main
             id="main-scroll-area"
@@ -117,6 +111,13 @@ export default function DashboardLayoutClient({ children }: { children: React.Re
             }`}
           >
             <div className={`mx-auto ${isChat ? "h-full w-full" : "max-w-[1400px]"}`}>
+              {showWaBanner && (
+                <WhatsAppInitBanner
+                  firebaseUid={user.uid}
+                  whatsappNumber={waNumber}
+                  onDismiss={() => setShowWaBanner(false)}
+                />
+              )}
               {children}
             </div>
           </main>
