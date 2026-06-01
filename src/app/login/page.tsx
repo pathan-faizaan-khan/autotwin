@@ -129,10 +129,7 @@ export default function LoginPage() {
           {/* Main copy */}
           <div className="mt-auto mb-10">
             <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-semibold mb-6">
-                <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
-                Trusted by 500+ finance teams
-              </span>
+            
               <h2 className="font-outfit text-4xl xl:text-5xl font-black text-white tracking-tighter leading-[1.1] mb-6">
                 Your financial data,<br />
                 <span className="bg-gradient-to-r from-violet-400 via-indigo-400 to-pink-400 bg-clip-text text-transparent">
@@ -181,9 +178,6 @@ export default function LoginPage() {
                 </div>
               ))}
             </div>
-            <p className="text-xs text-zinc-500">
-              <span className="text-zinc-300 font-semibold">500+ finance teams</span> rely on AutoTwin AI daily
-            </p>
           </motion.div>
         </div>
       </div>
